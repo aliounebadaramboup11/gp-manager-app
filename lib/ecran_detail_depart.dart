@@ -23,6 +23,18 @@ class _EcranDetailDepartState extends State<EcranDetailDepart> {
     if (mounted) { setState(() { _colis = colis; _isLoading = false; }); }
   }
 
+  double _getTotal(String devise, {bool? estPaye}) {
+    double total = 0;
+    for (var c in _colis) {
+      if (c['devise'] == devise) {
+        if (estPaye == null || (estPaye == true && c['statut_paiement'] == 'Payé') || (estPaye == false && c['statut_paiement'] != 'Payé')) {
+          total += (c['prix_transport'] as num).toDouble();
+        }
+      }
+    }
+    return total;
+  }
+
   void _montrerChoixAppel(Map<String, dynamic> colis) {
     showDialog(context: context, builder: (context) => AlertDialog(backgroundColor: const Color(0xFF0A192F), title: const Text('Appeler...', style: TextStyle(color: Colors.white, fontSize: 18)), content: Column(mainAxisSize: MainAxisSize.min, children: [
       if (colis['telephone_expediteur'] != null && colis['telephone_expediteur'].toString().isNotEmpty) ListTile(leading: const Icon(Icons.upload, color: Colors.amber), title: const Text('L\'expéditeur', style: TextStyle(color: Colors.white)), subtitle: Text(colis['telephone_expediteur'], style: const TextStyle(color: Colors.grey)), onTap: () { Navigator.pop(context); _lancerAppel(colis['telephone_expediteur']); }),
@@ -57,6 +69,11 @@ class _EcranDetailDepartState extends State<EcranDetailDepart> {
     if (result == true) _chargerColis();
   }
 
+  void _ouvrirFormulaireModification(Map<String, dynamic> colis) async {
+    final result = await showDialog(context: context, builder: (context) => FormulaireColis(departureId: widget.depart['id'], colisAModifier: colis));
+    if (result == true) _chargerColis();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -65,6 +82,41 @@ class _EcranDetailDepartState extends State<EcranDetailDepart> {
         padding: const EdgeInsets.all(20.0),
         child: Column(
           children: [
+            // DATES
+            Text('Enregistré le : ${widget.depart['created_at'].toString().substring(0, 10)}', style: const TextStyle(color: Colors.grey, fontSize: 12)),
+            Text('Date du vol : ${widget.depart['date_depart'].toString().substring(0, 10)}', style: const TextStyle(color: Colors.amber, fontSize: 14, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 15),
+
+            // BLOC FCFA
+            if (_getTotal("FCFA") > 0)
+              Container(
+                margin: const EdgeInsets.only(bottom: 10),
+                padding: const EdgeInsets.all(15),
+                decoration: BoxDecoration(color: Colors.white.withOpacity(0.05), borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.amber.withOpacity(0.5))),
+                child: Column(children: [
+                  const Text('BILAN FCFA', style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 12)),
+                  const SizedBox(height: 5),
+                  Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Text('Total:', style: TextStyle(color: Colors.white)), Text('${_getTotal("FCFA").toStringAsFixed(0)} FCFA', style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold))]),
+                  Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Text('Payé:', style: TextStyle(color: Colors.green)), Text('${_getTotal("FCFA", estPaye: true).toStringAsFixed(0)} FCFA', style: const TextStyle(color: Colors.green))]),
+                  Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Text('Reste:', style: TextStyle(color: Colors.redAccent)), Text('${_getTotal("FCFA", estPaye: false).toStringAsFixed(0)} FCFA', style: const TextStyle(color: Colors.redAccent))]),
+                ]),
+              ),
+            // BLOC EURO
+            if (_getTotal("Euro") > 0)
+              Container(
+                margin: const EdgeInsets.only(bottom: 10),
+                padding: const EdgeInsets.all(15),
+                decoration: BoxDecoration(color: Colors.white.withOpacity(0.05), borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.blueAccent.withOpacity(0.5))),
+                child: Column(children: [
+                  const Text('BILAN EURO', style: TextStyle(color: Colors.blueAccent, fontWeight: FontWeight.bold, fontSize: 12)),
+                  const SizedBox(height: 5),
+                  Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Text('Total:', style: TextStyle(color: Colors.white)), Text('${_getTotal("Euro").toStringAsFixed(0)} €', style: const TextStyle(color: Colors.blueAccent, fontWeight: FontWeight.bold))]),
+                  Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Text('Payé:', style: TextStyle(color: Colors.green)), Text('${_getTotal("Euro", estPaye: true).toStringAsFixed(0)} €', style: const TextStyle(color: Colors.green))]),
+                  Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Text('Reste:', style: TextStyle(color: Colors.redAccent)), Text('${_getTotal("Euro", estPaye: false).toStringAsFixed(0)} €', style: const TextStyle(color: Colors.redAccent))]),
+                ]),
+              ),
+            
+            const SizedBox(height: 10),
             ElevatedButton.icon(style: ElevatedButton.styleFrom(backgroundColor: Colors.amber, foregroundColor: Colors.black, minimumSize: const Size(double.infinity, 50)), onPressed: _ouvrirFormulaireAjout, icon: const Icon(Icons.add_box), label: const Text('Ajouter un colis', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold))),
             const SizedBox(height: 20),
             Expanded(
@@ -72,15 +124,25 @@ class _EcranDetailDepartState extends State<EcranDetailDepart> {
                 itemCount: _colis.length,
                 itemBuilder: (context, index) {
                   final c = _colis[index];
+                  bool estPaye = c['statut_paiement'] == 'Payé';
                   return Card(
                     color: Colors.white.withOpacity(0.1),
                     margin: const EdgeInsets.only(bottom: 10),
                     child: Column(
                       children: [
                         ListTile(
-                          leading: const Icon(Icons.inventory_2, color: Colors.amber),
+                          leading: Icon(Icons.inventory_2, color: estPaye ? Colors.green : Colors.amber),
                           title: Text(c['nom_client'], style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                          subtitle: Text('Prix: ${c['prix_transport']} ${c['devise']}', style: const TextStyle(color: Colors.grey)),
+                          subtitle: Text('Prix: ${c['prix_transport']} ${c['devise']} | Statut: ${c['statut_paiement']}', style: TextStyle(color: estPaye ? Colors.green : Colors.grey)),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(icon: const Icon(Icons.edit, color: Colors.blueAccent), onPressed: () => _ouvrirFormulaireModification(c)),
+                              estPaye 
+                                ? IconButton(icon: const Icon(Icons.cancel, color: Colors.redAccent), onPressed: () async { bool ok = await ApiService.annulerPaiement(c['id']); if (ok) _chargerColis(); })
+                                : IconButton(icon: const Icon(Icons.payment, color: Colors.green), onPressed: () async { bool ok = await ApiService.marquerCommePaye(c['id']); if (ok) _chargerColis(); }),
+                            ],
+                          ),
                         ),
                         const Divider(color: Colors.grey, height: 1),
                         Row(mainAxisAlignment: MainAxisAlignment.end, children: [
@@ -104,7 +166,8 @@ class _EcranDetailDepartState extends State<EcranDetailDepart> {
 
 class FormulaireColis extends StatefulWidget {
   final int departureId;
-  const FormulaireColis({super.key, required this.departureId});
+  final Map<String, dynamic>? colisAModifier;
+  const FormulaireColis({super.key, required this.departureId, this.colisAModifier});
   @override
   State<FormulaireColis> createState() => _FormulaireColisState();
 }
@@ -117,44 +180,42 @@ class _FormulaireColisState extends State<FormulaireColis> {
   String _selectedDevise = 'FCFA';
   final List<String> _devises = ['FCFA', 'Euro', 'Dollar', 'Dirham', 'Autre'];
   bool _isLoading = false;
-  
-  // Variables pour la pièce d'identité
   String _typePiece = 'Aucune';
   final List<String> _typesPieces = ['Aucune', 'CNI', 'Passeport'];
   XFile? _photoRecto;
   XFile? _photoVerso;
   final ImagePicker _picker = ImagePicker();
 
-  Future<void> _choisirImage(bool estRecto, ImageSource source) async {
-    final XFile? image = await _picker.pickImage(source: source);
-    if (image != null) {
-      setState(() {
-        if (estRecto) { _photoRecto = image; } else { _photoVerso = image; }
-      });
+  @override
+  void initState() {
+    super.initState();
+    if (widget.colisAModifier != null) {
+      _nomController.text = widget.colisAModifier!['nom_client'] ?? '';
+      _telExpController.text = widget.colisAModifier!['telephone_expediteur'] ?? '';
+      _telDestController.text = widget.colisAModifier!['telephone_destinataire'] ?? '';
+      _prixController.text = widget.colisAModifier!['prix_transport'].toString();
+      _selectedDevise = widget.colisAModifier!['devise'] ?? 'FCFA';
     }
   }
 
+  Future<void> _choisirImage(bool estRecto, ImageSource source) async {
+    final XFile? image = await _picker.pickImage(source: source);
+    if (image != null) { setState(() { if (estRecto) { _photoRecto = image; } else { _photoVerso = image; } }); }
+  }
+
   void _montrerOptionsImage(bool estRecto) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: const Color(0xFF0A192F),
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(leading: const Icon(Icons.camera_alt, color: Colors.amber), title: const Text('Prendre une photo', style: TextStyle(color: Colors.white)), onTap: () { Navigator.pop(context); _choisirImage(estRecto, ImageSource.camera); }),
-            ListTile(leading: const Icon(Icons.photo_library, color: Colors.amber), title: const Text('Choisir depuis la galerie', style: TextStyle(color: Colors.white)), onTap:          () { Navigator.pop(context); _choisirImage(estRecto, ImageSource.gallery); }),
- ],
-        ),
-      ),
-    );
+    showModalBottomSheet(context: context, backgroundColor: const Color(0xFF0A192F), builder: (context) => SafeArea(child: Column(mainAxisSize: MainAxisSize.min, children: [
+      ListTile(leading: const Icon(Icons.camera_alt, color: Colors.amber), title: const Text('Prendre une photo', style: TextStyle(color: Colors.white)), onTap: () { Navigator.pop(context); _choisirImage(estRecto, ImageSource.camera); }),
+      ListTile(leading: const Icon(Icons.photo_library, color: Colors.amber), title: const Text('Choisir depuis la galerie', style: TextStyle(color: Colors.white)), onTap: () { Navigator.pop(context); _choisirImage(estRecto, ImageSource.gallery); }),
+    ])));
   }
 
   @override
   Widget build(BuildContext context) {
+    bool isModif = widget.colisAModifier != null;
     return AlertDialog(
       backgroundColor: const Color(0xFF0A192F),
-      title: const Text('Nouveau Colis', style: TextStyle(color: Colors.white)),
+      title: Text(isModif ? 'Modifier le Colis' : 'Nouveau Colis', style: const TextStyle(color: Colors.white)),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -171,8 +232,6 @@ class _FormulaireColisState extends State<FormulaireColis> {
               Container(padding: const EdgeInsets.symmetric(horizontal: 10), decoration: BoxDecoration(color: Colors.white.withOpacity(0.1), borderRadius: BorderRadius.circular(8)), child: DropdownButton<String>(value: _selectedDevise, dropdownColor: const Color(0xFF0A192F), style: const TextStyle(color: Colors.white), underline: Container(), items: _devises.map((String val) => DropdownMenuItem(value: val, child: Text(val))).toList(), onChanged: (newVal) => setState(() => _selectedDevise = newVal!))),
             ]),
             const SizedBox(height: 20),
-            
-            // --- SECTION PIECE D'IDENTITE ---
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(color: Colors.white.withOpacity(0.05), borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.white.withOpacity(0.2))),
@@ -181,21 +240,12 @@ class _FormulaireColisState extends State<FormulaireColis> {
                 children: [
                   const Text('Pièce fournie par le client', style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 10),
-                  DropdownButtonFormField<String>(
-                    value: _typePiece,
-                    dropdownColor: const Color(0xFF0A192F),
-                    style: const TextStyle(color: Colors.white),
-                    decoration: const InputDecoration(labelText: 'Type de pièce', labelStyle: TextStyle(color: Colors.grey), filled: true, fillColor: Color(0xFF0A192F)),
-                    items: _typesPieces.map((String val) => DropdownMenuItem(value: val, child: Text(val))).toList(),
-                    onChanged: (newVal) => setState(() => _typePiece = newVal!),
-                  ),
+                  DropdownButtonFormField<String>(value: _typePiece, dropdownColor: const Color(0xFF0A192F), style: const TextStyle(color: Colors.white), decoration: const InputDecoration(labelText: 'Type de pièce', labelStyle: TextStyle(color: Colors.grey), filled: true, fillColor: Color(0xFF0A192F)), items: _typesPieces.map((String val) => DropdownMenuItem(value: val, child: Text(val))).toList(), onChanged: (newVal) => setState(() => _typePiece = newVal!)),
                   const SizedBox(height: 10),
-                  
                   if (_typePiece != 'Aucune') ...[
                     ElevatedButton.icon(style: ElevatedButton.styleFrom(backgroundColor: _photoRecto != null ? Colors.green : Colors.amber, foregroundColor: Colors.black, minimumSize: const Size(double.infinity, 40)), onPressed: () => _montrerOptionsImage(true), icon: Icon(_photoRecto != null ? Icons.check : Icons.add_a_photo), label: Text(_photoRecto != null ? 'Recto ajouté' : (_typePiece == 'CNI' ? 'Photo Recto (CNI)' : 'Photo (Passeport)'))),
                     const SizedBox(height: 10),
-                    if (_typePiece == 'CNI')
-                      ElevatedButton.icon(style: ElevatedButton.styleFrom(backgroundColor: _photoVerso != null ? Colors.green : Colors.amber, foregroundColor: Colors.black, minimumSize: const Size(double.infinity, 40)), onPressed: () => _montrerOptionsImage(false), icon: Icon(_photoVerso != null ? Icons.check : Icons.add_a_photo), label: Text(_photoVerso != null ? 'Verso ajouté' : 'Photo Verso (CNI)')),
+                    if (_typePiece == 'CNI') ElevatedButton.icon(style: ElevatedButton.styleFrom(backgroundColor: _photoVerso != null ? Colors.green : Colors.amber, foregroundColor: Colors.black, minimumSize: const Size(double.infinity, 40)), onPressed: () => _montrerOptionsImage(false), icon: Icon(_photoVerso != null ? Icons.check : Icons.add_a_photo), label: Text(_photoVerso != null ? 'Verso ajouté' : 'Photo Verso (CNI)')),
                   ],
                 ],
               ),
@@ -208,11 +258,16 @@ class _FormulaireColisState extends State<FormulaireColis> {
         _isLoading ? const CircularProgressIndicator(color: Colors.amber) : ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: Colors.amber), onPressed: () async {
           if (_nomController.text.isEmpty || _prixController.text.isEmpty) return;
           setState(() { _isLoading = true; });
-          bool succes = await ApiService.ajouterColis(departureId: widget.departureId, nomClient: _nomController.text, telExpediteur: _telExpController.text, telDestinataire: _telDestController.text, prix: int.tryParse(_prixController.text) ?? 0, devise: _selectedDevise, photoRecto: _photoRecto?.name, photoVerso: _photoVerso?.name);
+          bool succes;
+          if (isModif) {
+            succes = await ApiService.modifierColis(id: widget.colisAModifier!['id'], nomClient: _nomController.text, telExpediteur: _telExpController.text, telDestinataire: _telDestController.text, prix: int.tryParse(_prixController.text) ?? 0, devise: _selectedDevise);
+          } else {
+            succes = await ApiService.ajouterColis(departureId: widget.departureId, nomClient: _nomController.text, telExpediteur: _telExpController.text, telDestinataire: _telDestController.text, prix: int.tryParse(_prixController.text) ?? 0, devise: _selectedDevise, photoRecto: _photoRecto?.name, photoVerso: _photoVerso?.name);
+          }
           if (!mounted) return;
           setState(() { _isLoading = false; });
           if (succes) Navigator.pop(context, true);
-        }, child: const Text('Ajouter', style: TextStyle(color: Colors.black))),
+        }, child: Text(isModif ? 'Enregistrer' : 'Ajouter', style: const TextStyle(color: Colors.black))),
       ],
     );
   }
