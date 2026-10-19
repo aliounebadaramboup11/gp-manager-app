@@ -16,16 +16,31 @@ class _EcranNouveauDepartState extends State<EcranNouveauDepart> {
 
   Future<void> _creerDepart() async {
     if (_lieuDepartController.text.isEmpty || _lieuArriveeController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Remplissez les champs.'), backgroundColor: Colors.orange));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Remplissez le départ et l\'arrivée.'), backgroundColor: Colors.orange));
       return;
     }
     setState(() { _isLoading = true; });
     String reference = 'GP-${DateTime.now().year}-${DateTime.now().millisecondsSinceEpoch.toString().substring(8)}';
     String dateStr = "${_selectedDate.year}-${_selectedDate.month.toString().padLeft(2, '0')}-${_selectedDate.day.toString().padLeft(2, '0')}";
-    bool succes = await ApiService.creerDepart(reference: reference, dateDepart: dateStr, lieuDepart: _lieuDepartController.text, lieuArrivee: _lieuArriveeController.text, ownerEmail: widget.ownerEmail);
+    
+    // On ajoute createdBy: widget.ownerEmail
+    bool succes = await ApiService.creerDepart(
+      reference: reference, 
+      dateDepart: dateStr, 
+      lieuDepart: _lieuDepartController.text, 
+      lieuArrivee: _lieuArriveeController.text, 
+      ownerEmail: widget.ownerEmail,
+      createdBy: widget.ownerEmail // <-- LE PARAMÈTRE MANQUANT EST ICI
+    );
+    
     if (!mounted) return;
     setState(() { _isLoading = false; });
-    if (succes) { Navigator.pop(context, true); } else { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Erreur.'), backgroundColor: Colors.red)); }
+    if (succes) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Départ créé avec succès !'), backgroundColor: Colors.green));
+      Navigator.pop(context);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Erreur lors de la création.'), backgroundColor: Colors.red));
+    }
   }
 
   @override
@@ -36,15 +51,15 @@ class _EcranNouveauDepartState extends State<EcranNouveauDepart> {
         padding: const EdgeInsets.all(20.0),
         child: Column(
           children: [
-            TextField(controller: _lieuDepartController, style: const TextStyle(color: Colors.white), decoration: InputDecoration(labelText: 'Lieu de départ', labelStyle: const TextStyle(color: Colors.grey), filled: true, fillColor: Colors.white.withOpacity(0.1), border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)))),
+            TextField(controller: _lieuDepartController, style: const TextStyle(color: Colors.white), decoration: InputDecoration(labelText: 'Lieu de départ (ex: Dakar)', labelStyle: const TextStyle(color: Colors.grey), filled: true, fillColor: Colors.white.withOpacity(0.1), border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)))),
             const SizedBox(height: 15),
-            TextField(controller: _lieuArriveeController, style: const TextStyle(color: Colors.white), decoration: InputDecoration(labelText: 'Lieu d\'arrivée', labelStyle: const TextStyle(color: Colors.grey), filled: true, fillColor: Colors.white.withOpacity(0.1), border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)))),
+            TextField(controller: _lieuArriveeController, style: const TextStyle(color: Colors.white), decoration: InputDecoration(labelText: 'Lieu d\'arrivée (ex: Paris)', labelStyle: const TextStyle(color: Colors.grey), filled: true, fillColor: Colors.white.withOpacity(0.1), border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)))),
             const SizedBox(height: 20),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text('Date : ${_selectedDate.day}/${_selectedDate.month}/${_selectedDate.year}', style: const TextStyle(color: Colors.white, fontSize: 16)),
-                TextButton(onPressed: () async { final p = await showDatePicker(context: context, initialDate: _selectedDate, firstDate: DateTime(2024), lastDate: DateTime(2030)); if (p != null) setState(() { _selectedDate = p; }); }, child: const Text('Changer', style: TextStyle(color: Colors.amber))),
+                TextButton(onPressed: () async { final DateTime? picked = await showDatePicker(context: context, initialDate: _selectedDate, firstDate: DateTime(2024), lastDate: DateTime(2030)); if (picked != null) setState(() { _selectedDate = picked; }); }, child: const Text('Changer', style: TextStyle(color: Colors.amber))),
               ],
             ),
             const SizedBox(height: 40),

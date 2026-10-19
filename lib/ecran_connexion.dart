@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'ecran_inscription.dart';
 import 'ecran_tableau_de_bord.dart';
+import 'ecran_connexion_invite.dart'; // Import de la page invité
 import 'api_service.dart';
 
 class EcranConnexion extends StatefulWidget {
@@ -39,13 +40,32 @@ class _EcranConnexionState extends State<EcranConnexion> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Text('Connectez-vous à votre espace', style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
+            const Text('Espace GP Principal', style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
             const SizedBox(height: 30),
             TextField(controller: _emailController, style: const TextStyle(color: Colors.white), decoration: InputDecoration(labelText: 'Email', labelStyle: const TextStyle(color: Colors.grey), filled: true, fillColor: Colors.white.withOpacity(0.1), border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)))),
             const SizedBox(height: 20),
             TextField(controller: _passwordController, obscureText: true, style: const TextStyle(color: Colors.white), decoration: InputDecoration(labelText: 'Mot de passe', labelStyle: const TextStyle(color: Colors.grey), filled: true, fillColor: Colors.white.withOpacity(0.1), border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)))),
             const SizedBox(height: 30),
             _isLoading ? const CircularProgressIndicator(color: Colors.amber) : ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: Colors.amber, foregroundColor: Colors.black, minimumSize: const Size(double.infinity, 50)), onPressed: _seConnecter, child: const Text('Se connecter', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold))),
+            
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(child: Divider(color: Colors.grey.withOpacity(0.5))),
+                const Padding(padding: EdgeInsets.symmetric(horizontal: 10), child: Text('OU', style: TextStyle(color: Colors.grey))),
+                Expanded(child: Divider(color: Colors.grey.withOpacity(0.5))),
+              ],
+            ),
+            const SizedBox(height: 20),
+
+            // --- LE BOUTON COLLABORATEUR EST ICI ---
+            OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(foregroundColor: const Color(0xFFD4AF37), side: const BorderSide(color: Color(0xFFD4AF37)), minimumSize: const Size(double.infinity, 50)),
+              onPressed: () { Navigator.push(context, MaterialPageRoute(builder: (context) => const EcranConnexionInvite())); },
+              icon: const Icon(Icons.group),
+              label: const Text('Je suis un collaborateur (Code)', style: TextStyle(fontSize: 16)),
+            ),
+
             const SizedBox(height: 20),
             TextButton(onPressed: () { Navigator.push(context, MaterialPageRoute(builder: (context) => const EcranInscription())); }, child: const Text('Pas encore de compte ? S\'inscrire', style: TextStyle(color: Colors.amber, fontSize: 16))),
           ],

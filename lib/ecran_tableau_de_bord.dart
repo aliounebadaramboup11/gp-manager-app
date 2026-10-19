@@ -4,18 +4,31 @@ import 'ecran_detail_depart.dart';
 import 'ecran_profil.dart';
 import 'ecran_paiement.dart';
 import 'ecran_mes_voyages.dart';
+import 'ecran_equipe.dart';
+import 'ecran_notifications.dart'; // Import de la page notifications
 import 'api_service.dart';
 
 class EcranTableauDeBord extends StatefulWidget {
   final String nomUtilisateur;
   final String emailUtilisateur;
-  const EcranTableauDeBord({super.key, required this.nomUtilisateur, required this.emailUtilisateur});
+  final bool estInvite;
+  final bool masquerMontants;
+  
+  const EcranTableauDeBord({
+    super.key, 
+    required this.nomUtilisateur, 
+    required this.emailUtilisateur,
+    this.estInvite = false,
+    this.masquerMontants = false,
+  });
+  
   @override
   State<EcranTableauDeBord> createState() => _EcranTableauDeBordState();
 }
 
 class _EcranTableauDeBordState extends State<EcranTableauDeBord> {
   List<dynamic> _departs = [];
+  List<dynamic> _notifications = [];
   bool _isLoading = true;
   late String _nomActuel;
   double _totalEncaisse = 0;
@@ -33,19 +46,21 @@ class _EcranTableauDeBordState extends State<EcranTableauDeBord> {
     final profil = await ApiService.getProfil(widget.emailUtilisateur);
     final departs = await ApiService.getDeparts(widget.emailUtilisateur);
     final total = await ApiService.getTotalEncaisse(widget.emailUtilisateur);
+    final notifs = await ApiService.getNotifications(widget.emailUtilisateur);
     
     if (mounted) { 
       setState(() { 
-        _nomActuel = profil?['nom'] ?? _nomActuel; 
+        _nomActuel = widget.estInvite ? widget.nomUtilisateur : (profil?['nom'] ?? _nomActuel); 
         _departs = departs; 
         _totalEncaisse = total;
+        _notifications = notifs;
         _isLoading = false; 
       }); 
     }
   }
 
   void _fermerDepart(Map<String, dynamic> depart) {
-    showDialog(context: context, builder: (context) => AlertDialog(backgroundColor: const Color(0xFF112240), title: const Text('Fermer le départ ?', style: TextStyle(color: Colors.white)), content: const Text('Le départ passera dans l\'historique mais pourra être rouvert tant que la semaine n\'est pas écoulée.', style: TextStyle(color: Colors.grey)), actions: [
+    showDialog(context: context, builder: (context) => AlertDialog(backgroundColor: const Color(0xFF112240), title: const Text('Fermer le départ ?', style: TextStyle(color: Colors.white)), content: const Text('Le départ passera dans l\'historique.', style: TextStyle(color: Colors.grey)), actions: [
       TextButton(onPressed: () => Navigator.pop(context), child: const Text('Annuler', style: TextStyle(color: Colors.grey))),
       ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: Colors.orange), onPressed: () async { bool ok = await ApiService.fermerDepart(depart['id']); if (!context.mounted) return; Navigator.pop(context); if (ok) _chargerTout(); }, child: const Text('Fermer', style: TextStyle(color: Colors.white))),
     ]));
@@ -54,6 +69,8 @@ class _EcranTableauDeBordState extends State<EcranTableauDeBord> {
   @override
   Widget build(BuildContext context) {
     List<dynamic> departsEnCours = _departs.where((d) => d['est_cloture'] != true).toList();
+    // On compte les notifications non lues
+    int notifsNonLues = _notifications.where((n) => n['est_lu'] == false).length;
 
     return Scaffold(
       backgroundColor: const Color(0xFF0A192F),
@@ -70,10 +87,13 @@ class _EcranTableauDeBordState extends State<EcranTableauDeBord> {
                 const SizedBox(height: 50),
                 _buildSidebarItem(Icons.dashboard, 'Tableau de bord', true, onTap: () {}),
                 _buildSidebarItem(Icons.flight, 'Mes voyages', false, onTap: () async { await Navigator.push(context, MaterialPageRoute(builder: (context) => EcranMesVoyages(emailUtilisateur: widget.emailUtilisateur))); _chargerTout(); }),
-                _buildSidebarItem(Icons.payment, 'Mes paiements', false, onTap: () { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Bientôt disponible'))); }),
-                _buildSidebarItem(Icons.history, 'Historique', false, onTap: () { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Bientôt disponible'))); }),
+                if (!widget.estInvite) ...[
+                  _buildSidebarItem(Icons.payment, 'Mes paiements', false, onTap: () { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Bientôt disponible'))); }),
+                  _buildSidebarItem(Icons.history, 'Historique', false, onTap: () { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Bientôt disponible'))); }),
+                ],
                 _buildSidebarItem(Icons.person, 'Profil', false, onTap: () async { final result = await Navigator.push(context, MaterialPageRoute(builder: (context) => EcranProfil(email: widget.emailUtilisateur, nomActuel: _nomActuel))); if (result != null) _chargerTout(); }),
-                _buildSidebarItem(Icons.settings, 'Paramètres', false, onTap: () { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Bientôt disponible'))); }),
+                if (!widget.estInvite) 
+                  _buildSidebarItem(Icons.settings, 'Mon Équipe', false, onTap: () { Navigator.push(context, MaterialPageRoute(builder: (context) => EcranEquipe(emailUtilisateur: widget.emailUtilisateur))); }),
                 const Spacer(),
                 Padding(padding: const EdgeInsets.all(20.0), child: Text('Votre sécurité,\nnotre priorité.', style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12, fontStyle: FontStyle.italic))),
               ],
@@ -97,20 +117,48 @@ class _EcranTableauDeBordState extends State<EcranTableauDeBord> {
                             const SizedBox(height: 5),
                             const Text('Votre activité du jour', style: TextStyle(color: Colors.grey, fontSize: 14)),
                           ]),
+                          const Spacer(),
+                          
+                          // --- LA CLOCHE DE NOTIFICATION EST ICI ---
+                          if (!widget.estInvite) 
+                            Stack(
+                              children: [
+                                IconButton(
+                                  icon: const Icon(Icons.notifications, color: Colors.white, size: 30),
+                                  onPressed: () async {
+                                    await Navigator.push(context, MaterialPageRoute(builder: (context) => EcranNotifications(emailUtilisateur: widget.emailUtilisateur)));
+                                    _chargerTout(); // On recharge pour faire disparaître le badge rouge
+                                  },
+                                ),
+                                if (notifsNonLues > 0)
+                                  Positioned(
+                                    right: 5, top: 5,
+                                    child: Container(
+                                      padding: const EdgeInsets.all(4),
+                                      decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
+                                      constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+                                      child: Text('$notifsNonLues', style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
+                                    ),
+                                  ),
+                              ],
+                            ),
                         ],
                       ),
+                      
                       const SizedBox(height: 30),
 
-                      SizedBox(width: double.infinity, height: 55, child: ElevatedButton.icon(style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFD4AF37), foregroundColor: Colors.black, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))), onPressed: () async { final p = await Navigator.push(context, MaterialPageRoute(builder: (context) => EcranPaiement(nomUtilisateur: _nomActuel, emailUtilisateur: widget.emailUtilisateur))); if (p == true) { await Navigator.push(context, MaterialPageRoute(builder: (context) => EcranNouveauDepart(ownerEmail: widget.emailUtilisateur))); _chargerTout(); } }, icon: const Icon(Icons.add), label: const Text('Créer un départ', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)))),
+                      if (!widget.estInvite) 
+                        SizedBox(width: double.infinity, height: 55, child: ElevatedButton.icon(style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFD4AF37), foregroundColor: Colors.black, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))), onPressed: () async { final p = await Navigator.push(context, MaterialPageRoute(builder: (context) => EcranPaiement(nomUtilisateur: _nomActuel, emailUtilisateur: widget.emailUtilisateur))); if (p == true) { await Navigator.push(context, MaterialPageRoute(builder: (context) => EcranNouveauDepart(ownerEmail: widget.emailUtilisateur))); _chargerTout(); } }, icon: const Icon(Icons.add), label: const Text('Créer un départ', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)))),
                       const SizedBox(height: 30),
 
-                      Row(
-                        children: [
-                          _buildStatCard('Départs en cours', '${departsEnCours.length}', Icons.flight, Colors.blueAccent),
-                          const SizedBox(width: 20),
-                          _buildStatCard('Total encaissé', '${_totalEncaisse.toStringAsFixed(0)} FCFA', Icons.monetization_on, const Color(0xFFD4AF37)),
-                        ],
-                      ),
+                      if (!widget.estInvite) 
+                        Row(
+                          children: [
+                            _buildStatCard('Départs en cours', '${departsEnCours.length}', Icons.flight, Colors.blueAccent),
+                            const SizedBox(width: 20),
+                            _buildStatCard('Total encaissé', '${_totalEncaisse.toStringAsFixed(0)} FCFA', Icons.monetization_on, const Color(0xFFD4AF37)),
+                          ],
+                        ),
                       const SizedBox(height: 40),
 
                       const Text('Départs en cours', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
@@ -128,7 +176,15 @@ class _EcranTableauDeBordState extends State<EcranTableauDeBord> {
                                 decoration: BoxDecoration(color: const Color(0xFF112240), borderRadius: BorderRadius.circular(10)),
                                 child: InkWell(
                                   borderRadius: BorderRadius.circular(10),
-                                  onTap: () async { await Navigator.push(context, MaterialPageRoute(builder: (context) => EcranDetailDepart(depart: d))); _chargerTout(); },
+                                  onTap: () async { 
+                                    await Navigator.push(context, MaterialPageRoute(builder: (context) => EcranDetailDepart(
+                                      depart: d, 
+                                      estInvite: widget.estInvite, 
+                                      masquerMontants: widget.masquerMontants,
+                                      nomInvite: widget.estInvite ? _nomActuel : '',
+                                    ))); 
+                                    _chargerTout(); 
+                                  },
                                   child: Padding(
                                     padding: const EdgeInsets.all(15),
                                     child: Row(
@@ -140,7 +196,8 @@ class _EcranTableauDeBordState extends State<EcranTableauDeBord> {
                                           const SizedBox(height: 5),
                                           Text('Réf: ${d['reference']} | ${d['date_depart'].toString().substring(0, 10)}', style: const TextStyle(color: Colors.grey, fontSize: 12)),
                                         ])),
-                                        IconButton(icon: const Icon(Icons.lock_clock, color: Colors.orange), tooltip: 'Fermer le départ', onPressed: () => _fermerDepart(d)),
+                                        if (!widget.estInvite) 
+                                          IconButton(icon: const Icon(Icons.lock_clock, color: Colors.orange), tooltip: 'Fermer le départ', onPressed: () => _fermerDepart(d)),
                                         const Icon(Icons.chevron_right, color: Colors.white),
                                       ],
                                     ),
@@ -163,25 +220,6 @@ class _EcranTableauDeBordState extends State<EcranTableauDeBord> {
   }
 
   Widget _buildStatCard(String title, String value, IconData icon, Color color) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.all(20), 
-        decoration: BoxDecoration(color: const Color(0xFF112240), borderRadius: BorderRadius.circular(10)), 
-        child: Row(
-          children: [
-            Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: color.withOpacity(0.1), shape: BoxShape.circle), child: Icon(icon, color: color, size: 24)), 
-            const SizedBox(width: 15), 
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start, 
-              children: [
-                Text(title, style: const TextStyle(color: Colors.grey, fontSize: 12)), 
-                const SizedBox(height: 5), 
-                Text(value, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold))
-              ]
-            )
-          ]
-        )
-      )
-    );
+    return Expanded(child: Container(padding: const EdgeInsets.all(20), decoration: BoxDecoration(color: const Color(0xFF112240), borderRadius: BorderRadius.circular(10)), child: Row(children: [Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: color.withOpacity(0.1), shape: BoxShape.circle), child: Icon(icon, color: color, size: 24)), const SizedBox(width: 15), Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title, style: const TextStyle(color: Colors.grey, fontSize: 12)), const SizedBox(height: 5), Text(value, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold))])])));
   }
 }

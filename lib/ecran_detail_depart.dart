@@ -5,7 +5,18 @@ import 'api_service.dart';
 
 class EcranDetailDepart extends StatefulWidget {
   final Map<String, dynamic> depart;
-  const EcranDetailDepart({super.key, required this.depart});
+  final bool estInvite;
+  final bool masquerMontants;
+  final String nomInvite;
+
+  const EcranDetailDepart({
+    super.key, 
+    required this.depart,
+    this.estInvite = false,
+    this.masquerMontants = false,
+    this.nomInvite = '',
+  });
+  
   @override
   State<EcranDetailDepart> createState() => _EcranDetailDepartState();
 }
@@ -19,7 +30,7 @@ class _EcranDetailDepartState extends State<EcranDetailDepart> {
 
   void _chargerColis() async {
     setState(() { _isLoading = true; });
-    final colis = await ApiService.getColis(widget.depart['id']);
+    final colis = await ApiService.getColis(widget.depart['id'], widget.depart['owner_email']);
     if (mounted) { setState(() { _colis = colis; _isLoading = false; }); }
   }
 
@@ -35,30 +46,50 @@ class _EcranDetailDepartState extends State<EcranDetailDepart> {
     return total;
   }
 
-  void _montrerChoixAppel(Map<String, dynamic> colis) { showDialog(context: context, builder: (context) => AlertDialog(backgroundColor: const Color(0xFF0A192F), title: const Text('Appeler...', style: TextStyle(color: Colors.white, fontSize: 18)), content: Column(mainAxisSize: MainAxisSize.min, children: [
+  void _montrerChoixAppel(Map<String, dynamic> colis) {
+    showDialog(context: context, builder: (context) => AlertDialog(backgroundColor: const Color(0xFF0A192F), title: const Text('Appeler...', style: TextStyle(color: Colors.white, fontSize: 18)), content: Column(mainAxisSize: MainAxisSize.min, children: [
       if (colis['telephone_expediteur'] != null && colis['telephone_expediteur'].toString().isNotEmpty) ListTile(leading: const Icon(Icons.upload, color: Colors.amber), title: const Text('L\'expéditeur', style: TextStyle(color: Colors.white)), subtitle: Text(colis['telephone_expediteur'], style: const TextStyle(color: Colors.grey)), onTap: () { Navigator.pop(context); _lancerAppel(colis['telephone_expediteur']); }),
       if (colis['telephone_destinataire'] != null && colis['telephone_destinataire'].toString().isNotEmpty) ListTile(leading: const Icon(Icons.download, color: Colors.blueAccent), title: const Text('Le destinataire', style: TextStyle(color: Colors.white)), subtitle: Text(colis['telephone_destinataire'], style: const TextStyle(color: Colors.grey)), onTap: () { Navigator.pop(context); _lancerAppel(colis['telephone_destinataire']); }),
-    ]))); }
+    ])));
+  }
   Future<void> _lancerAppel(String? telephone) async { if (telephone == null || telephone.isEmpty) return; final Uri url = Uri(scheme: 'tel', path: telephone); if (!await launchUrl(url)) debugPrint('Erreur appel'); }
 
-  void _montrerChoixWhatsApp(Map<String, dynamic> colis) { showDialog(context: context, builder: (context) => AlertDialog(backgroundColor: const Color(0xFF0A192F), title: const Text('Envoyer un message', style: TextStyle(color: Colors.white, fontSize: 18)), content: Column(mainAxisSize: MainAxisSize.min, children: [
+  void _montrerChoixWhatsApp(Map<String, dynamic> colis) {
+    showDialog(context: context, builder: (context) => AlertDialog(backgroundColor: const Color(0xFF0A192F), title: const Text('Envoyer un message', style: TextStyle(color: Colors.white, fontSize: 18)), content: Column(mainAxisSize: MainAxisSize.min, children: [
       ListTile(leading: const Icon(Icons.person, color: Colors.greenAccent), title: const Text('Message individuel', style: TextStyle(color: Colors.white)), onTap: () { Navigator.pop(context); _ouvrirDiscussionIndividuelle(colis); }),
-    ]))); }
-  void _ouvrirDiscussionIndividuelle(Map<String, dynamic> colis) { showDialog(context: context, builder: (context) => AlertDialog(backgroundColor: const Color(0xFF0A192F), title: const Text('Qui contacter ?', style: TextStyle(color: Colors.white, fontSize: 18)), content: Column(mainAxisSize: MainAxisSize.min, children: [
+    ])));
+  }
+  void _ouvrirDiscussionIndividuelle(Map<String, dynamic> colis) {
+    showDialog(context: context, builder: (context) => AlertDialog(backgroundColor: const Color(0xFF0A192F), title: const Text('Qui contacter ?', style: TextStyle(color: Colors.white, fontSize: 18)), content: Column(mainAxisSize: MainAxisSize.min, children: [
       if (colis['telephone_expediteur'] != null && colis['telephone_expediteur'].toString().isNotEmpty) ListTile(title: Text('Expéditeur (${colis['telephone_expediteur']})', style: const TextStyle(color: Colors.white)), onTap: () { Navigator.pop(context); _lancerLienWhatsApp(colis['telephone_expediteur']); }),
       if (colis['telephone_destinataire'] != null && colis['telephone_destinataire'].toString().isNotEmpty) ListTile(title: Text('Destinataire (${colis['telephone_destinataire']})', style: const TextStyle(color: Colors.white)), onTap: () { Navigator.pop(context); _lancerLienWhatsApp(colis['telephone_destinataire']); }),
-    ]))); }
+    ])));
+  }
   Future<void> _lancerLienWhatsApp(String? telephone) async { if (telephone == null || telephone.isEmpty) return; String num = telephone.replaceAll(RegExp(r'\s+'), '').replaceAll('+', ''); final Uri url = Uri.parse('https://wa.me/$num'); if (!await launchUrl(url, mode: LaunchMode.externalApplication)) { if (mounted) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Impossible d\'ouvrir WhatsApp.'), backgroundColor: Colors.red)); } } }
+
+  void _supprimerColis(Map<String, dynamic> colis) {
+    showDialog(context: context, builder: (context) => AlertDialog(backgroundColor: const Color(0xFF112240), title: const Text('Supprimer le colis ?', style: TextStyle(color: Colors.white)), content: const Text('Action irréversible.', style: TextStyle(color: Colors.grey)), actions: [
+      TextButton(onPressed: () => Navigator.pop(context), child: const Text('Annuler', style: TextStyle(color: Colors.grey))),
+      ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: Colors.red), onPressed: () async { 
+        bool ok = await ApiService.supprimerColis(id: colis['id'], userEmail: widget.estInvite ? widget.nomInvite : widget.depart['owner_email'], hostEmail: widget.depart['owner_email']); 
+        if (!context.mounted) return; Navigator.pop(context); if (ok) _chargerColis(); 
+      }, child: const Text('Supprimer', style: TextStyle(color: Colors.white))),
+    ]));
+  }
 
   void _ouvrirFormulaireAjout() async {
     if (widget.depart['est_cloture'] == true) return;
-    final result = await showDialog(context: context, builder: (context) => FormulaireColis(departureId: widget.depart['id']));
+    final result = await showDialog(context: context, builder: (context) => FormulaireColis(departureId: widget.depart['id'], userEmail: widget.estInvite ? widget.nomInvite : widget.depart['owner_email'], hostEmail: widget.depart['owner_email']));
     if (result == true) _chargerColis();
   }
 
   void _ouvrirFormulaireModification(Map<String, dynamic> colis) async {
     if (widget.depart['est_cloture'] == true) return;
-    final result = await showDialog(context: context, builder: (context) => FormulaireColis(departureId: widget.depart['id'], colisAModifier: colis));
+    if (widget.estInvite && colis['created_by'] != widget.nomInvite) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Vous ne pouvez modifier que vos propres colis.'), backgroundColor: Colors.red));
+      return;
+    }
+    final result = await showDialog(context: context, builder: (context) => FormulaireColis(departureId: widget.depart['id'], userEmail: widget.estInvite ? widget.nomInvite : widget.depart['owner_email'], hostEmail: widget.depart['owner_email'], colisAModifier: colis));
     if (result == true) _chargerColis();
   }
 
@@ -74,22 +105,23 @@ class _EcranDetailDepartState extends State<EcranDetailDepart> {
             Text('Date du vol : ${widget.depart['date_depart'].toString().substring(0, 10)}', style: const TextStyle(color: Colors.amber, fontSize: 14, fontWeight: FontWeight.bold)),
             const SizedBox(height: 15),
 
-            if (_getTotal("FCFA") > 0)
-              Container(margin: const EdgeInsets.only(bottom: 10), padding: const EdgeInsets.all(15), decoration: BoxDecoration(color: Colors.white.withOpacity(0.05), borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.amber.withOpacity(0.5))), child: Column(children: [
-                const Text('BILAN FCFA', style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 12)), const SizedBox(height: 5),
-                Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Text('Total:', style: TextStyle(color: Colors.white)), Text('${_getTotal("FCFA").toStringAsFixed(0)} FCFA', style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold))]),
-                Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Text('Payé:', style: TextStyle(color: Colors.green)), Text('${_getTotal("FCFA", estPaye: true).toStringAsFixed(0)} FCFA', style: const TextStyle(color: Colors.green))]),
-                Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Text('Reste:', style: TextStyle(color: Colors.redAccent)), Text('${_getTotal("FCFA", estPaye: false).toStringAsFixed(0)} FCFA', style: const TextStyle(color: Colors.redAccent))]),
-              ])),
-            if (_getTotal("Euro") > 0)
-              Container(margin: const EdgeInsets.only(bottom: 10), padding: const EdgeInsets.all(15), decoration: BoxDecoration(color: Colors.white.withOpacity(0.05), borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.blueAccent.withOpacity(0.5))), child: Column(children: [
-                const Text('BILAN EURO', style: TextStyle(color: Colors.blueAccent, fontWeight: FontWeight.bold, fontSize: 12)), const SizedBox(height: 5),
-                Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Text('Total:', style: TextStyle(color: Colors.white)), Text('${_getTotal("Euro").toStringAsFixed(0)} €', style: const TextStyle(color: Colors.blueAccent, fontWeight: FontWeight.bold))]),
-                Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Text('Payé:', style: TextStyle(color: Colors.green)), Text('${_getTotal("Euro", estPaye: true).toStringAsFixed(0)} €', style: const TextStyle(color: Colors.green))]),
-                Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Text('Reste:', style: TextStyle(color: Colors.redAccent)), Text('${_getTotal("Euro", estPaye: false).toStringAsFixed(0)} €', style: const TextStyle(color: Colors.redAccent))]),
-              ])),
+            if (!widget.masquerMontants) ...[
+              if (_getTotal("FCFA") > 0)
+                Container(margin: const EdgeInsets.only(bottom: 10), padding: const EdgeInsets.all(15), decoration: BoxDecoration(color: Colors.white.withOpacity(0.05), borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.amber.withOpacity(0.5))), child: Column(children: [
+                  const Text('BILAN FCFA', style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 12)), const SizedBox(height: 5),
+                  Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Text('Total:', style: TextStyle(color: Colors.white)), Text('${_getTotal("FCFA").toStringAsFixed(0)} FCFA', style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold))]),
+                  Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Text('Payé:', style: TextStyle(color: Colors.green)), Text('${_getTotal("FCFA", estPaye: true).toStringAsFixed(0)} FCFA', style: const TextStyle(color: Colors.green))]),
+                  Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Text('Reste:', style: TextStyle(color: Colors.redAccent)), Text('${_getTotal("FCFA", estPaye: false).toStringAsFixed(0)} FCFA', style: const TextStyle(color: Colors.redAccent))]),
+                ])),
+            ] else ...[
+              Container(
+                width: double.infinity, padding: const EdgeInsets.all(15), decoration: BoxDecoration(color: Colors.white.withOpacity(0.05), borderRadius: BorderRadius.circular(10)),
+                child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.visibility_off, color: Colors.grey), SizedBox(width: 10), Text('Les montants sont masqués par le GP.', style: TextStyle(color: Colors.grey))]),
+              ),
+            ],
             
             const SizedBox(height: 10),
+            
             ElevatedButton.icon(
               style: ElevatedButton.styleFrom(backgroundColor: widget.depart['est_cloture'] == true ? Colors.grey : Colors.amber, foregroundColor: Colors.black, minimumSize: const Size(double.infinity, 50)),
               onPressed: widget.depart['est_cloture'] == true ? null : _ouvrirFormulaireAjout,
@@ -104,6 +136,8 @@ class _EcranDetailDepartState extends State<EcranDetailDepart> {
                 itemBuilder: (context, index) {
                   final c = _colis[index];
                   bool estPaye = c['statut_paiement'] == 'Payé';
+                  bool peutModifier = !widget.estInvite || (widget.estInvite && c['created_by'] == widget.nomInvite);
+
                   return Card(
                     color: Colors.white.withOpacity(0.1),
                     margin: const EdgeInsets.only(bottom: 10),
@@ -112,16 +146,20 @@ class _EcranDetailDepartState extends State<EcranDetailDepart> {
                         ListTile(
                           leading: Icon(Icons.inventory_2, color: estPaye ? Colors.green : Colors.amber),
                           title: Text(c['nom_client'], style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                          subtitle: Text('Prix: ${c['prix_transport']} ${c['devise']} | Statut: ${c['statut_paiement']}', style: TextStyle(color: estPaye ? Colors.green : Colors.grey)),
+                          subtitle: Text(
+                            widget.masquerMontants ? 'Statut: ${c['statut_paiement']}' : 'Prix: ${c['prix_transport']} ${c['devise']} | Statut: ${c['statut_paiement']}', 
+                            style: TextStyle(color: estPaye ? Colors.green : Colors.grey)
+                          ),
                           trailing: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              if (widget.depart['est_cloture'] != true) ...[
+                              if (widget.depart['est_cloture'] != true && peutModifier) ...[
                                 IconButton(icon: const Icon(Icons.edit, color: Colors.blueAccent), onPressed: () => _ouvrirFormulaireModification(c)),
+                                IconButton(icon: const Icon(Icons.delete, color: Colors.redAccent), onPressed: () => _supprimerColis(c)),
                                 estPaye 
-                                  ? IconButton(icon: const Icon(Icons.cancel, color: Colors.redAccent), onPressed: () async { bool ok = await ApiService.annulerPaiement(c['id']); if (ok) _chargerColis(); })
+                                  ? IconButton(icon: const Icon(Icons.cancel, color: Colors.orange), onPressed: () async { bool ok = await ApiService.annulerPaiement(c['id']); if (ok) _chargerColis(); })
                                   : IconButton(icon: const Icon(Icons.payment, color: Colors.green), onPressed: () async { bool ok = await ApiService.marquerCommePaye(c['id']); if (ok) _chargerColis(); }),
-                              ] else 
+                              ] else if (widget.depart['est_cloture'] == true)
                                 const Icon(Icons.lock, color: Colors.grey),
                             ],
                           ),
@@ -146,11 +184,12 @@ class _EcranDetailDepartState extends State<EcranDetailDepart> {
   }
 }
 
-// --- CLASSE FORMULAIRE COLIS ---
 class FormulaireColis extends StatefulWidget {
   final int departureId;
+  final String userEmail;
+  final String hostEmail;
   final Map<String, dynamic>? colisAModifier;
-  const FormulaireColis({super.key, required this.departureId, this.colisAModifier});
+  const FormulaireColis({super.key, required this.departureId, required this.userEmail, required this.hostEmail, this.colisAModifier});
   @override
   State<FormulaireColis> createState() => _FormulaireColisState();
 }
@@ -242,14 +281,40 @@ class _FormulaireColisState extends State<FormulaireColis> {
           if (_nomController.text.isEmpty || _prixController.text.isEmpty) return;
           setState(() { _isLoading = true; });
           bool succes;
+          
           if (isModif) {
-            succes = await ApiService.modifierColis(id: widget.colisAModifier!['id'], nomClient: _nomController.text, telExpediteur: _telExpController.text, telDestinataire: _telDestController.text, prix: int.tryParse(_prixController.text) ?? 0, devise: _selectedDevise);
+            succes = await ApiService.modifierColis(
+              id: widget.colisAModifier!['id'], 
+              nomClient: _nomController.text, 
+              telExpediteur: _telExpController.text, 
+              telDestinataire: _telDestController.text, 
+              prix: int.tryParse(_prixController.text) ?? 0, 
+              devise: _selectedDevise,
+              userEmail: widget.userEmail,
+              hostEmail: widget.hostEmail
+            );
           } else {
-            succes = await ApiService.ajouterColis(departureId: widget.departureId, nomClient: _nomController.text, telExpediteur: _telExpController.text, telDestinataire: _telDestController.text, prix: int.tryParse(_prixController.text) ?? 0, devise: _selectedDevise, photoRecto: _photoRecto?.name, photoVerso: _photoVerso?.name);
+            succes = await ApiService.ajouterColis(
+              departureId: widget.departureId, 
+              nomClient: _nomController.text, 
+              telExpediteur: _telExpController.text, 
+              telDestinataire: _telDestController.text, 
+              prix: int.tryParse(_prixController.text) ?? 0, 
+              devise: _selectedDevise, 
+              photoRecto: _photoRecto?.name, 
+              photoVerso: _photoVerso?.name,
+              createdBy: widget.userEmail,
+              hostEmail: widget.hostEmail
+            );
           }
+          
           if (!mounted) return;
           setState(() { _isLoading = false; });
-          if (succes) Navigator.pop(context, true);
+          if (succes) {
+            Navigator.pop(context, true);
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Erreur lors de l\'enregistrement.'), backgroundColor: Colors.red));
+          }
         }, child: Text(isModif ? 'Enregistrer' : 'Ajouter', style: const TextStyle(color: Colors.black))),
       ],
     );
