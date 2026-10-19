@@ -20,7 +20,6 @@ class ApiService {
     try { final r = await http.put(Uri.parse('$baseUrl/api/users/$email/profil'), headers: {'Content-Type': 'application/json'}, body: jsonEncode({'nom': nom, 'photo_profil': photoProfil})); return r.statusCode == 200; } catch (e) { return false; }
   }
 
-  // --- FONCTION PAIEMENT ---
   static Future<bool> payerFraisCreation(String email) async {
     try { final r = await http.post(Uri.parse('$baseUrl/api/paiement/creer'), headers: {'Content-Type': 'application/json'}, body: jsonEncode({'email': email, 'montant': 5000})); return r.statusCode == 200; } catch (e) { return false; }
   }
@@ -35,6 +34,15 @@ class ApiService {
 
   static Future<bool> supprimerDepart(int departureId) async {
     try { final r = await http.delete(Uri.parse('$baseUrl/api/departures/$departureId')); return r.statusCode == 200; } catch (e) { return false; }
+  }
+
+  static Future<bool> fermerDepart(int departureId) async {
+    try { final r = await http.put(Uri.parse('$baseUrl/api/departures/$departureId/close')); return r.statusCode == 200; } catch (e) { return false; }
+  }
+
+  // --- NOUVELLE FONCTION ROUVRIR DEPART ---
+  static Future<bool> rouvrirDepart(int departureId) async {
+    try { final r = await http.put(Uri.parse('$baseUrl/api/departures/$departureId/open')); return r.statusCode == 200; } catch (e) { return false; }
   }
 
   static Future<bool> ajouterColis({required int departureId, required String nomClient, required String telExpediteur, required String telDestinataire, required int prix, required String devise, String? photoRecto, String? photoVerso}) async {
@@ -55,5 +63,9 @@ class ApiService {
 
   static Future<bool> modifierColis({required int id, required String nomClient, required String telExpediteur, required String telDestinataire, required int prix, required String devise}) async {
     try { final r = await http.put(Uri.parse('$baseUrl/api/packages/$id'), headers: {'Content-Type': 'application/json'}, body: jsonEncode({'nom_client': nomClient, 'telephone_expediteur': telExpediteur, 'telephone_destinataire': telDestinataire, 'prix_transport': prix, 'devise': devise})); return r.statusCode == 200; } catch (e) { return false; }
+  }
+
+  static Future<double> getTotalEncaisse(String email) async {
+    try { final r = await http.get(Uri.parse('$baseUrl/api/stats/$email')); if (r.statusCode == 200) { final data = jsonDecode(r.body); return (data['total_encaisse'] as num).toDouble(); } return 0; } catch (e) { return 0; }
   }
 }
