@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'pages/finances_page.dart';
 import 'ecran_nouveau_depart.dart';
 import 'ecran_detail_depart.dart';
 import 'ecran_profil.dart';
@@ -98,7 +99,8 @@ class _EcranTableauDeBordState extends State<EcranTableauDeBord> {
                 
                 _buildSidebarItem(Icons.person, 'Profil', false, onTap: () async { final result = await Navigator.push(context, MaterialPageRoute(builder: (context) => EcranProfil(email: widget.emailUtilisateur, nomActuel: _nomActuel))); if (result != null) _chargerTout(); }),
                 if (!widget.estInvite) 
-                  _buildSidebarItem(Icons.settings, 'Mon Équipe', false, onTap: () { Navigator.push(context, MaterialPageRoute(builder: (context) => EcranEquipe(emailUtilisateur: widget.emailUtilisateur))); }),
+                  _buildSidebarItem(Icons.account_balance_wallet, 'Mes Finances', false, onTap: () { Navigator.push(context, MaterialPageRoute(builder: (context) => FinancesPage(email: widget.emailUtilisateur))); }),
+                          _buildSidebarItem(Icons.settings, 'Mon Équipe', false, onTap: () { Navigator.push(context, MaterialPageRoute(builder: (context) => EcranEquipe(emailUtilisateur: widget.emailUtilisateur))); }),
                 const Spacer(),
                 Padding(padding: const EdgeInsets.all(20.0), child: Text('Votre sécurité,\nnotre priorité.', style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12, fontStyle: FontStyle.italic))),
               ],

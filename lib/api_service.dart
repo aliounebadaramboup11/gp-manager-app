@@ -1,3 +1,4 @@
+import 'finances_model.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
@@ -117,5 +118,50 @@ class ApiService {
       if (r.statusCode == 200) return jsonDecode(r.body); 
       return {'recettes': 0, 'depenses': 0, 'benefice': 0}; 
     } catch (e) { return {'recettes': 0, 'depenses': 0, 'benefice': 0}; }
+  }
+
+  // --- FINANCES & DÉPENSES ---
+  Future<FinancesData> getFinances(String email, {String? month, int? departureId}) async {
+    String url = '$baseUrl/api/finances/$email';
+    List<String> params = [];
+    if (month != null) params.add('month=$month');
+    if (departureId != null) params.add('departure_id=$departureId');
+    if (params.isNotEmpty) url += '?${params.join("&")}';
+
+    final response = await http.get(Uri.parse(url));
+    if (response.statusCode == 200) {
+      try {
+        return FinancesData.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
+      } catch (e) {
+        throw Exception('Le serveur a renvoye du texte au lieu de JSON.');
+      }
+    } else {
+      throw Exception('Erreur serveur : ${response.statusCode}.');
+    }
+  }
+
+  Future<bool> addDepense({
+    required String ownerEmail,
+    int? departureId,
+    required String categorie,
+    String? description,
+    required int montant,
+    String devise = 'FCFA',
+    String? dateDepense,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/api/depenses'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'owner_email': ownerEmail,
+        'departure_id': departureId,
+        'categorie': categorie,
+        'description': description,
+        'montant': montant,
+        'devise': devise,
+        'date_depense': dateDepense,
+      }),
+    );
+    return response.statusCode == 201;
   }
 }
