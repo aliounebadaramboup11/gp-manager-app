@@ -33,6 +33,7 @@ class _EcranTableauDeBordState extends State<EcranTableauDeBord> {
   late String _nomActuel;
   double _totalEncaisse = 0;
   bool _menuOuvert = true; 
+  String _recherche = ''; 
 
   @override
   void initState() {
@@ -69,6 +70,14 @@ class _EcranTableauDeBordState extends State<EcranTableauDeBord> {
   @override
   Widget build(BuildContext context) {
     List<dynamic> departsEnCours = _departs.where((d) => d['est_cloture'] != true).toList();
+    if (_recherche.isNotEmpty) {
+      departsEnCours = departsEnCours.where((d) => 
+        d['lieu_depart'].toString().toLowerCase().contains(_recherche.toLowerCase()) ||
+        d['lieu_arrivee'].toString().toLowerCase().contains(_recherche.toLowerCase()) ||
+        d['reference'].toString().toLowerCase().contains(_recherche.toLowerCase())
+      ).toList();
+    }
+
     int notifsNonLues = _notifications.where((n) => n['est_lu'] == false).length;
 
     return Scaffold(
@@ -86,10 +95,7 @@ class _EcranTableauDeBordState extends State<EcranTableauDeBord> {
                 const SizedBox(height: 50),
                 _buildSidebarItem(Icons.dashboard, 'Tableau de bord', true, onTap: () {}),
                 _buildSidebarItem(Icons.flight, 'Mes voyages', false, onTap: () async { await Navigator.push(context, MaterialPageRoute(builder: (context) => EcranMesVoyages(emailUtilisateur: widget.emailUtilisateur))); _chargerTout(); }),
-                if (!widget.estInvite) ...[
-                  _buildSidebarItem(Icons.payment, 'Mes paiements', false, onTap: () { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Bientôt disponible'))); }),
-                  _buildSidebarItem(Icons.history, 'Historique', false, onTap: () { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Bientôt disponible'))); }),
-                ],
+                
                 _buildSidebarItem(Icons.person, 'Profil', false, onTap: () async { final result = await Navigator.push(context, MaterialPageRoute(builder: (context) => EcranProfil(email: widget.emailUtilisateur, nomActuel: _nomActuel))); if (result != null) _chargerTout(); }),
                 if (!widget.estInvite) 
                   _buildSidebarItem(Icons.settings, 'Mon Équipe', false, onTap: () { Navigator.push(context, MaterialPageRoute(builder: (context) => EcranEquipe(emailUtilisateur: widget.emailUtilisateur))); }),
@@ -103,11 +109,10 @@ class _EcranTableauDeBordState extends State<EcranTableauDeBord> {
             child: _isLoading 
               ? const Center(child: CircularProgressIndicator(color: Color(0xFFD4AF37))) 
               : SingleChildScrollView(
-                  padding: const EdgeInsets.all(20.0), // Réduit pour laisser plus de place à l'image
+                  padding: const EdgeInsets.all(20.0),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // BOUTON MENU ET CLOCHE
                       Row(
                         children: [
                           IconButton(icon: Icon(_menuOuvert ? Icons.chevron_left : Icons.chevron_right, color: const Color(0xFFD4AF37)), onPressed: () { setState(() { _menuOuvert = !_menuOuvert; }); }),
@@ -138,39 +143,22 @@ class _EcranTableauDeBordState extends State<EcranTableauDeBord> {
                       ),
                       const SizedBox(height: 10),
 
-                      // --- LE NOUVEAU DESIGN AVEC L'IMAGE EST ICI ---
                       Container(
-                        width: double.infinity, // Prend toute la largeur
-                        height: 220, // Plus haut
+                        width: double.infinity, 
+                        height: 220, 
                         decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(20), // Bords arrondis
-                          image: const DecorationImage(
-                            image: AssetImage('assets/images/avion.jpg'), // L'image de fond
-                            fit: BoxFit.cover, // L'image remplit tout l'espace
-                          ),
-                          boxShadow: [
-                            BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 5))
-                          ]
+                          borderRadius: BorderRadius.circular(20),
+                          image: const DecorationImage(image: AssetImage('assets/images/avion.jpg'), fit: BoxFit.cover),
+                          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 5))]
                         ),
                         child: Stack(
                           children: [
-                            // Un voile sombre pour que le texte reste lisible
-                            Container(
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(20),
-                                gradient: LinearGradient(
-                                  colors: [Colors.black.withOpacity(0.7), Colors.transparent],
-                                  begin: Alignment.bottomLeft,
-                                  end: Alignment.topRight,
-                                ),
-                              ),
-                            ),
-                            // Le texte par-dessus
+                            Container(decoration: BoxDecoration(borderRadius: BorderRadius.circular(20), gradient: LinearGradient(colors: [Colors.black.withOpacity(0.7), Colors.transparent], begin: Alignment.bottomLeft, end: Alignment.topRight))),
                             Padding(
                               padding: const EdgeInsets.all(25.0),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisAlignment: MainAxisAlignment.end, // Texte aligné en bas
+                                mainAxisAlignment: MainAxisAlignment.end,
                                 children: [
                                   Text('Bonjour, $_nomActuel !', style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold, shadows: [Shadow(color: Colors.black, blurRadius: 10)])),
                                   const SizedBox(height: 5),
@@ -184,12 +172,24 @@ class _EcranTableauDeBordState extends State<EcranTableauDeBord> {
                       
                       const SizedBox(height: 30),
 
-                      // BOUTON CRÉER DÉPART
+                      TextField(
+                        onChanged: (value) { setState(() { _recherche = value; }); },
+                        style: const TextStyle(color: Colors.white),
+                        decoration: InputDecoration(
+                          hintText: 'Rechercher un départ (ville, référence...)',
+                          hintStyle: const TextStyle(color: Colors.grey),
+                          prefixIcon: const Icon(Icons.search, color: Color(0xFFD4AF37)),
+                          filled: true,
+                          fillColor: const Color(0xFF112240),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+
                       if (!widget.estInvite) 
                         SizedBox(width: double.infinity, height: 55, child: ElevatedButton.icon(style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFD4AF37), foregroundColor: Colors.black, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))), onPressed: () async { final p = await Navigator.push(context, MaterialPageRoute(builder: (context) => EcranPaiement(nomUtilisateur: _nomActuel, emailUtilisateur: widget.emailUtilisateur))); if (p == true) { await Navigator.push(context, MaterialPageRoute(builder: (context) => EcranNouveauDepart(ownerEmail: widget.emailUtilisateur))); _chargerTout(); } }, icon: const Icon(Icons.add), label: const Text('Créer un départ', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)))),
                       const SizedBox(height: 30),
 
-                      // CARTES DE STATS
                       if (!widget.estInvite) 
                         Row(
                           children: [
@@ -202,8 +202,9 @@ class _EcranTableauDeBordState extends State<EcranTableauDeBord> {
 
                       const Text('Départs en cours', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 15),
+                      
                       departsEnCours.isEmpty 
-                        ? const Center(child: Padding(padding: EdgeInsets.all(20), child: Text('Aucun voyage en cours.', style: TextStyle(color: Colors.grey))))
+                        ? const Center(child: Padding(padding: EdgeInsets.all(20), child: Text('Aucun voyage ne correspond à votre recherche.', style: TextStyle(color: Colors.grey))))
                         : ListView.builder(
                             shrinkWrap: true,
                             physics: const NeverScrollableScrollPhysics(),

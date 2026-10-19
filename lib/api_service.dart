@@ -92,16 +92,30 @@ class ApiService {
     try { final r = await http.get(Uri.parse('$baseUrl/api/stats/$email')); if (r.statusCode == 200) { final data = jsonDecode(r.body); return (data['total_encaisse'] as num).toDouble(); } return 0; } catch (e) { return 0; }
   }
 
-  // --- NOUVELLES FONCTIONS FINANCIÈRES ---
-  static Future<bool> ajouterDepense({required String email, required int montant, required String devise, required String description}) async {
-    try { final r = await http.post(Uri.parse('$baseUrl/api/expenses'), headers: {'Content-Type': 'application/json'}, body: jsonEncode({'owner_email': email, 'montant': montant, 'devise': devise, 'description': description})); return r.statusCode == 201; } catch (e) { return false; }
+  // --- FONCTIONS FINANCIÈRES (CORRIGÉES) ---
+  static Future<bool> ajouterDepense({required String email, required int montant, required String devise, required String description, int? departureId}) async {
+    try { 
+      final r = await http.post(
+        Uri.parse('$baseUrl/api/expenses'), 
+        headers: {'Content-Type': 'application/json'}, 
+        body: jsonEncode({'owner_email': email, 'montant': montant, 'devise': devise, 'description': description, 'departure_id': departureId})
+      ); 
+      return r.statusCode == 201; 
+    } catch (e) { return false; }
   }
 
   static Future<List<dynamic>> getDepenses(String email) async {
     try { final r = await http.get(Uri.parse('$baseUrl/api/expenses/$email')); if (r.statusCode == 200) return jsonDecode(r.body); return []; } catch (e) { return []; }
   }
 
-  static Future<Map<String, dynamic>> getStatsFinancieres(String email) async {
-    try { final r = await http.get(Uri.parse('$baseUrl/api/stats-financieres/$email')); if (r.statusCode == 200) return jsonDecode(r.body); return {'recettes': 0, 'depenses': 0, 'benefice': 0}; } catch (e) { return {'recettes': 0, 'depenses': 0, 'benefice': 0}; }
+  static Future<Map<String, dynamic>> getStatsFinancieres(String email, {String? departureId}) async {
+    try { 
+      String url = '$baseUrl/api/stats-financieres/$email';
+      if (departureId != null) url += '?departure_id=$departureId';
+      
+      final r = await http.get(Uri.parse(url)); 
+      if (r.statusCode == 200) return jsonDecode(r.body); 
+      return {'recettes': 0, 'depenses': 0, 'benefice': 0}; 
+    } catch (e) { return {'recettes': 0, 'depenses': 0, 'benefice': 0}; }
   }
 }
