@@ -36,7 +36,6 @@ class ApiService {
     try { final r = await http.get(Uri.parse('$baseUrl/api/notifications/$email')); if (r.statusCode == 200) return jsonDecode(r.body); return []; } catch (e) { return []; }
   }
 
-  // --- NOUVELLE FONCTION ---
   static Future<bool> marquerNotificationsLues(String email) async {
     try { final r = await http.put(Uri.parse('$baseUrl/api/notifications/$email/read')); return r.statusCode == 200; } catch (e) { return false; }
   }
@@ -91,5 +90,18 @@ class ApiService {
 
   static Future<double> getTotalEncaisse(String email) async {
     try { final r = await http.get(Uri.parse('$baseUrl/api/stats/$email')); if (r.statusCode == 200) { final data = jsonDecode(r.body); return (data['total_encaisse'] as num).toDouble(); } return 0; } catch (e) { return 0; }
+  }
+
+  // --- NOUVELLES FONCTIONS FINANCIÈRES ---
+  static Future<bool> ajouterDepense({required String email, required int montant, required String devise, required String description}) async {
+    try { final r = await http.post(Uri.parse('$baseUrl/api/expenses'), headers: {'Content-Type': 'application/json'}, body: jsonEncode({'owner_email': email, 'montant': montant, 'devise': devise, 'description': description})); return r.statusCode == 201; } catch (e) { return false; }
+  }
+
+  static Future<List<dynamic>> getDepenses(String email) async {
+    try { final r = await http.get(Uri.parse('$baseUrl/api/expenses/$email')); if (r.statusCode == 200) return jsonDecode(r.body); return []; } catch (e) { return []; }
+  }
+
+  static Future<Map<String, dynamic>> getStatsFinancieres(String email) async {
+    try { final r = await http.get(Uri.parse('$baseUrl/api/stats-financieres/$email')); if (r.statusCode == 200) return jsonDecode(r.body); return {'recettes': 0, 'depenses': 0, 'benefice': 0}; } catch (e) { return {'recettes': 0, 'depenses': 0, 'benefice': 0}; }
   }
 }
