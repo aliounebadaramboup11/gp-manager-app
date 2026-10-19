@@ -20,11 +20,13 @@ class ApiService {
     try { final r = await http.get(Uri.parse('$baseUrl/api/departures/$email')); if (r.statusCode == 200) return jsonDecode(r.body); return []; } catch (e) { return []; }
   }
 
+  // --- NOUVELLE FONCTION SUPPRIMER DEPART ---
+  static Future<bool> supprimerDepart(int departureId) async {
+    try { final r = await http.delete(Uri.parse('$baseUrl/api/departures/$departureId')); return r.statusCode == 200; } catch (e) { return false; }
+  }
+
   static Future<bool> ajouterColis({required int departureId, required String nomClient, required String telExpediteur, required String telDestinataire, required int prix, required String devise, String? photoRecto, String? photoVerso}) async {
-    try {
-      final r = await http.post(Uri.parse('$baseUrl/api/packages'), headers: {'Content-Type': 'application/json'}, body: jsonEncode({'departure_id': departureId, 'nom_client': nomClient, 'telephone_expediteur': telExpediteur, 'telephone_destinataire': telDestinataire, 'prix_transport': prix, 'devise': devise, 'photo_recto': photoRecto, 'photo_verso': photoVerso}));
-      return r.statusCode == 201;
-    } catch (e) { return false; }
+    try { final r = await http.post(Uri.parse('$baseUrl/api/packages'), headers: {'Content-Type': 'application/json'}, body: jsonEncode({'departure_id': departureId, 'nom_client': nomClient, 'telephone_expediteur': telExpediteur, 'telephone_destinataire': telDestinataire, 'prix_transport': prix, 'devise': devise, 'photo_recto': photoRecto, 'photo_verso': photoVerso})); return r.statusCode == 201; } catch (e) { return false; }
   }
 
   static Future<List<dynamic>> getColis(int departureId) async {
@@ -39,11 +41,7 @@ class ApiService {
     try { final r = await http.put(Uri.parse('$baseUrl/api/packages/$packageId/unpay')); return r.statusCode == 200; } catch (e) { return false; }
   }
 
-  // --- NOUVELLE FONCTION POUR MODIFIER ---
   static Future<bool> modifierColis({required int id, required String nomClient, required String telExpediteur, required String telDestinataire, required int prix, required String devise}) async {
-    try {
-      final r = await http.put(Uri.parse('$baseUrl/api/packages/$id'), headers: {'Content-Type': 'application/json'}, body: jsonEncode({'nom_client': nomClient, 'telephone_expediteur': telExpediteur, 'telephone_destinataire': telDestinataire, 'prix_transport': prix, 'devise': devise}));
-      return r.statusCode == 200;
-    } catch (e) { return false; }
+    try { final r = await http.put(Uri.parse('$baseUrl/api/packages/$id'), headers: {'Content-Type': 'application/json'}, body: jsonEncode({'nom_client': nomClient, 'telephone_expediteur': telExpediteur, 'telephone_destinataire': telDestinataire, 'prix_transport': prix, 'devise': devise})); return r.statusCode == 200; } catch (e) { return false; }
   }
 }
