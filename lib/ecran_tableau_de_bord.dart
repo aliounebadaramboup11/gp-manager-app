@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'ecran_nouveau_depart.dart';
 import 'ecran_detail_depart.dart';
+import 'ecran_profil.dart';
+import 'ecran_paiement.dart';
 import 'api_service.dart';
 
 class EcranTableauDeBord extends StatefulWidget {
@@ -14,9 +16,22 @@ class EcranTableauDeBord extends StatefulWidget {
 class _EcranTableauDeBordState extends State<EcranTableauDeBord> {
   List<dynamic> _departs = [];
   bool _isLoading = true;
+  late String _nomActuel;
 
   @override
-  void initState() { super.initState(); _chargerDeparts(); }
+  void initState() {
+    super.initState();
+    _nomActuel = widget.nomUtilisateur;
+    _chargerProfil();
+    _chargerDeparts();
+  }
+
+  void _chargerProfil() async {
+    final profil = await ApiService.getProfil(widget.emailUtilisateur);
+    if (mounted && profil != null) {
+      setState(() { _nomActuel = profil['nom'] ?? _nomActuel; });
+    }
+  }
 
   void _chargerDeparts() async {
     setState(() { _isLoading = true; });
@@ -24,29 +39,11 @@ class _EcranTableauDeBordState extends State<EcranTableauDeBord> {
     if (mounted) { setState(() { _departs = departs; _isLoading = false; }); }
   }
 
-  // Fonction pour confirmer et supprimer
   void _supprimerDepart(Map<String, dynamic> depart) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF0A192F),
-        title: const Text('Supprimer le départ ?', style: TextStyle(color: Colors.white)),
-        content: const Text('Cette action est irréversible. Tous les colis associés seront également supprimés.', style: TextStyle(color: Colors.grey)),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Annuler', style: TextStyle(color: Colors.grey))),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            onPressed: () async {
-              bool ok = await ApiService.supprimerDepart(depart['id']);
-              if (!context.mounted) return;
-              Navigator.pop(context);
-              if (ok) _chargerDeparts();
-            },
-            child: const Text('Supprimer', style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
-    );
+    showDialog(context: context, builder: (context) => AlertDialog(backgroundColor: const Color(0xFF0A192F), title: const Text('Supprimer ?', style: TextStyle(color: Colors.white)), content: const Text('Action irréversible.', style: TextStyle(color: Colors.grey)), actions: [
+      TextButton(onPressed: () => Navigator.pop(context), child: const Text('Annuler', style: TextStyle(color: Colors.grey))),
+      ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: Colors.red), onPressed: () async { bool ok = await ApiService.supprimerDepart(depart['id']); if (!context.mounted) return; Navigator.pop(context); if (ok) _chargerDeparts(); }, child: const Text('Supprimer', style: TextStyle(color: Colors.white))),
+    ]));
   }
 
   @override
@@ -57,12 +54,32 @@ class _EcranTableauDeBordState extends State<EcranTableauDeBord> {
         padding: const EdgeInsets.all(20.0),
         child: Column(
           children: [
-            Text('Bonjour, ${widget.nomUtilisateur} !', style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
+            Row(
+              children: [
+                const CircleAvatar(radius: 30, backgroundColor: Colors.amber, child: Icon(Icons.person, color: Colors.black)),
+                const SizedBox(width: 15),
+                Expanded(child: Text('Bonjour, $_nomActuel !', style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold))),
+                IconButton(icon: const Icon(Icons.edit, color: Colors.amber), onPressed: () async { final result = await Navigator.push(context, MaterialPageRoute(builder: (context) => EcranProfil(email: widget.emailUtilisateur, nomActuel: _nomActuel))); if (result != null) _chargerProfil(); }),
+              ],
+            ),
             const SizedBox(height: 20),
-            ElevatedButton.icon(style: ElevatedButton.styleFrom(backgroundColor: Colors.amber, foregroundColor: Colors.black, minimumSize: const Size(double.infinity, 50)), onPressed: () async { await Navigator.push(context, MaterialPageRoute(builder: (context) => EcranNouveauDepart(ownerEmail: widget.emailUtilisateur))); _chargerDeparts(); }, icon: const Icon(Icons.add), label: const Text('Créer un départ', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold))),
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.amber, foregroundColor: Colors.black, minimumSize: const Size(double.infinity, 50)), 
+              onPressed: () async { 
+                // 1. OUVRE LE PAIEMENT
+                final paiementEffectue = await Navigator.push(context, MaterialPageRoute(builder: (context) => EcranPaiement(nomUtilisateur: _nomActuel, emailUtilisateur: widget.emailUtilisateur)));
+                // 2. SI PAYÉ, OUVRE LE FORMULAIRE DE DÉPART
+                if (paiementEffectue == true) {
+                  await Navigator.push(context, MaterialPageRoute(builder: (context) => EcranNouveauDepart(ownerEmail: widget.emailUtilisateur))); 
+                  _chargerDeparts(); 
+                }
+              }, 
+              icon: const Icon(Icons.add), 
+              label: const Text('Créer un départ', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold))
+            ),
             const SizedBox(height: 30),
             Expanded(
-              child: _isLoading ? const Center(child: CircularProgressIndicator(color: Colors.amber)) : _departs.isEmpty ? const Center(child: Text('Aucun départ pour le moment.', style: TextStyle(color: Colors.grey))) : ListView.builder(
+              child: _isLoading ? const Center(child: CircularProgressIndicator(color: Colors.amber)) : _departs.isEmpty ? const Center(child: Text('Aucun départ.', style: TextStyle(color: Colors.grey))) : ListView.builder(
                 itemCount: _departs.length,
                 itemBuilder: (context, index) {
                   final d = _departs[index];
@@ -77,19 +94,11 @@ class _EcranTableauDeBordState extends State<EcranTableauDeBord> {
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          // BOUTON SUPPRIMER (seulement si non clôturé)
-                          if (!estCloture)
-                            IconButton(
-                              icon: const Icon(Icons.delete, color: Colors.redAccent),
-                              onPressed: () => _supprimerDepart(d),
-                            ),
+                          if (!estCloture) IconButton(icon: const Icon(Icons.delete, color: Colors.redAccent), onPressed: () => _supprimerDepart(d)),
                           Icon(Icons.chevron_right, color: estCloture ? Colors.grey : Colors.white),
                         ],
                       ),
-                      onTap: () async {
-                        await Navigator.push(context, MaterialPageRoute(builder: (context) => EcranDetailDepart(depart: d)));
-                        _chargerDeparts();
-                      },
+                      onTap: () async { await Navigator.push(context, MaterialPageRoute(builder: (context) => EcranDetailDepart(depart: d))); _chargerDeparts(); },
                     ),
                   );
                 },
