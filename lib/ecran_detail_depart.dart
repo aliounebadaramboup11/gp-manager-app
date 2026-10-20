@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../pdf_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:image_picker/image_picker.dart';
 import 'api_service.dart';
@@ -22,7 +23,7 @@ class EcranDetailDepart extends StatefulWidget {
 }
 
 class _EcranDetailDepartState extends State<EcranDetailDepart> {
-  List<dynamic> _colis = [];
+  String _rechercheColis = "";  List<dynamic> _colis = [];
   bool _isLoading = true;
 
   @override
@@ -96,7 +97,23 @@ class _EcranDetailDepartState extends State<EcranDetailDepart> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('${widget.depart['lieu_depart']} ➔ ${widget.depart['lieu_arrivee']}', style: const TextStyle(color: Colors.white)), backgroundColor: const Color(0xFF0A192F), iconTheme: const IconThemeData(color: Colors.white)),
+      appBar: AppBar(
+
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.picture_as_pdf, color: Colors.white),
+            tooltip: 'Exporter en PDF',
+            onPressed: () {
+              PdfService.genererManifeste(
+                departReference: widget.depart['reference']?.toString() ?? 'INCONNU',
+                lieuDepart: widget.depart['lieu_depart']?.toString() ?? 'Non renseigné',
+                lieuArrivee: widget.depart['lieu_arrivee']?.toString() ?? 'Non renseigné',
+                dateDepart: widget.depart['date_depart']?.toString() ?? 'Non renseignée',
+                colis: _colis,
+              );
+            },
+          ),
+        ],title: Text('${widget.depart['lieu_depart']} ➔ ${widget.depart['lieu_arrivee']}', style: const TextStyle(color: Colors.white)), backgroundColor: const Color(0xFF0A192F), iconTheme: const IconThemeData(color: Colors.white)),
       body: Padding(
         padding: const EdgeInsets.all(20.0),
         child: Column(
@@ -122,7 +139,23 @@ class _EcranDetailDepartState extends State<EcranDetailDepart> {
             
             const SizedBox(height: 10),
             
-            ElevatedButton.icon(
+            
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: TextField(
+              style: const TextStyle(color: Colors.white),
+              decoration: InputDecoration(
+                hintText: 'Rechercher un colis...',
+                hintStyle: const TextStyle(color: Colors.grey),
+                prefixIcon: const Icon(Icons.search, color: Colors.amber),
+                filled: true,
+                fillColor: const Color(0xFF112240),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+              ),
+              onChanged: (val) { setState(() { _rechercheColis = val.toLowerCase(); }); },
+            ),
+          ),
+          ElevatedButton.icon(
               style: ElevatedButton.styleFrom(backgroundColor: widget.depart['est_cloture'] == true ? Colors.grey : Colors.amber, foregroundColor: Colors.black, minimumSize: const Size(double.infinity, 50)),
               onPressed: widget.depart['est_cloture'] == true ? null : _ouvrirFormulaireAjout,
               icon: Icon(widget.depart['est_cloture'] == true ? Icons.lock : Icons.add_box),
@@ -134,7 +167,8 @@ class _EcranDetailDepartState extends State<EcranDetailDepart> {
               child: _isLoading ? const Center(child: CircularProgressIndicator(color: Colors.amber)) : _colis.isEmpty ? const Center(child: Text('Aucun colis dans ce départ.', style: TextStyle(color: Colors.grey))) : ListView.builder(
                 itemCount: _colis.length,
                 itemBuilder: (context, index) {
-                  final c = _colis[index];
+                  final _colisFiltres = _colis.where((c) => (c["nom_client"]?.toString().toLowerCase().contains(_rechercheColis) ?? false) || (c["telephone_expediteur"]?.toString().contains(_rechercheColis) ?? false)).toList();
+final c = _colisFiltres[index];
                   bool estPaye = c['statut_paiement'] == 'Payé';
                   bool peutModifier = !widget.estInvite || (widget.estInvite && c['created_by'] == widget.nomInvite);
 
