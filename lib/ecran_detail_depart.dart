@@ -122,19 +122,54 @@ class _EcranDetailDepartState extends State<EcranDetailDepart> {
             Text('Date du vol : ${widget.depart['date_depart'].toString().substring(0, 10)}', style: const TextStyle(color: Colors.amber, fontSize: 14, fontWeight: FontWeight.bold)),
             const SizedBox(height: 15),
 
-            if (!widget.masquerMontants) ...[
-              if (_getTotal("FCFA") > 0)
-                Container(margin: const EdgeInsets.only(bottom: 10), padding: const EdgeInsets.all(15), decoration: BoxDecoration(color: Colors.white.withOpacity(0.05), borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.amber.withOpacity(0.5))), child: Column(children: [
-                  const Text('BILAN FCFA', style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 12)), const SizedBox(height: 5),
-                  Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Text('Total:', style: TextStyle(color: Colors.white)), Text('${_getTotal("FCFA").toStringAsFixed(0)} FCFA', style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold))]),
-                  Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Text('Payé:', style: TextStyle(color: Colors.green)), Text('${_getTotal("FCFA", estPaye: true).toStringAsFixed(0)} FCFA', style: const TextStyle(color: Colors.green))]),
-                  Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Text('Reste:', style: TextStyle(color: Colors.redAccent)), Text('${_getTotal("FCFA", estPaye: false).toStringAsFixed(0)} FCFA', style: const TextStyle(color: Colors.redAccent))]),
-                ])),
-            ] else ...[
+           // --- BILANS DYNAMIQUES PAR DEVISE ---
+            if (widget.masquerMontants) ...[
               Container(
-                width: double.infinity, padding: const EdgeInsets.all(15), decoration: BoxDecoration(color: Colors.white.withOpacity(0.05), borderRadius: BorderRadius.circular(10)),
+                width: double.infinity, padding: const EdgeInsets.all(15),
+                decoration: BoxDecoration(color: Colors.white.withOpacity(0.05), borderRadius: BorderRadius.circular(10)),
                 child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.visibility_off, color: Colors.grey), SizedBox(width: 10), Text('Les montants sont masqués par le GP.', style: TextStyle(color: Colors.grey))]),
               ),
+            ] else ...[
+              ...(() {
+                final devises = _colis.map((c) => c['devise']?.toString() ?? 'FCFA').toSet().toList();
+                if (devises.isEmpty) devises.add('FCFA');
+
+                return devises.map((deviseActuelle) {
+                  final colisDevise = _colis.where((c) => (c['devise'] ?? 'FCFA') == deviseActuelle).toList();
+                  double totalDevise = 0;
+                  double payeDevise = 0;
+                  
+                  for (var c in colisDevise) {
+                    final prix = (c['prix_transport'] is num) ? (c['prix_transport'] as num).toDouble() : 0.0;
+                    totalDevise += prix;
+                    if (c['statut_paiement'] == 'Payé') payeDevise += prix;
+                  }
+
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 10),
+                    padding: const EdgeInsets.all(15),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.05),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.amber.withOpacity(0.5)),
+                    ),
+                    child: Column(
+                      children: [
+                        Text('BILAN $deviseActuelle', style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 12)),
+                        const SizedBox(height: 5),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text('Total: ${totalDevise.toStringAsFixed(0)} $deviseActuelle', style: const TextStyle(color: Colors.white, fontSize: 12)),
+                            Text('Payé: ${payeDevise.toStringAsFixed(0)} $deviseActuelle', style: const TextStyle(color: Colors.green, fontSize: 12)),
+                            Text('Reste: ${(totalDevise - payeDevise).toStringAsFixed(0)} $deviseActuelle', style: const TextStyle(color: Colors.redAccent, fontSize: 12)),
+                          ],
+                        ),
+                      ],
+                    ),
+                  );
+                }).toList();
+              })(),
             ],
             
             const SizedBox(height: 10),
