@@ -121,26 +121,45 @@ class ApiService {
   }
 
   // --- FINANCES & DÉPENSES ---
-  Future<FinancesData> getFinances(String email, {String? month, int? departureId}) async {
-    String url = '$baseUrl/api/finances/$email';
-    List<String> params = [];
-    if (month != null) params.add('month=$month');
-    if (departureId != null) params.add('departure_id=$departureId');
-    if (params.isNotEmpty) url += '?${params.join("&")}';
+  Future<FinancesData> getFinances(
+  String email, {
+  String? month,
+  String? day,
+  int? departureId,
+}) async {
+  final baseUri = Uri.parse(
+    '$baseUrl/api/finances/${Uri.encodeComponent(email)}',
+  );
 
-    final response = await http.get(Uri.parse(url));
-    if (response.statusCode == 200) {
-      try {
-        return FinancesData.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
-      } catch (e) {
-        throw Exception('Le serveur a renvoye du texte au lieu de JSON.');
-      }
-    } else {
-      throw Exception('Erreur serveur : ${response.statusCode}.');
-    }
+  final params = <String, String>{};
+
+  if (departureId != null) {
+    params['departure_id'] = departureId.toString();
+  } else if (day != null) {
+    params['day'] = day;
+  } else if (month != null) {
+    params['month'] = month;
   }
 
-  Future<bool> addDepense({
+  final uri = params.isEmpty
+      ? baseUri
+      : baseUri.replace(queryParameters: params);
+
+  final response = await http.get(uri);
+
+  if (response.statusCode == 200) {
+    return FinancesData.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
+  }
+
+  throw Exception(
+    'Erreur lors du chargement des finances '
+    '(HTTP ${response.statusCode})',
+  );
+}
+
+Future<bool> addDepense({
     required String ownerEmail,
     int? departureId,
     required String categorie,
