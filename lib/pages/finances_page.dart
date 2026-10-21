@@ -104,6 +104,169 @@ class _FinancesPageState extends State<FinancesPage> {
     });
   }
 
+  Future<void> _showEditDepenseDialog(DetailDepense d) async {
+    if (d.id == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Identifiant de dépense manquant.")),
+      );
+      return;
+    }
+
+    final formKey = GlobalKey<FormState>();
+    String categorie = d.categorie;
+    const categories = ['Douane', 'Transport', 'Divers'];
+    const devises = ['FCFA', 'EURO', 'Dollars', 'Dirham', 'Autre'];
+    String devise = devises.contains(d.devise) ? d.devise : 'Autre';
+    final description = TextEditingController(text: d.description ?? '');
+    final montant = TextEditingController(text: d.montant.toString());
+
+    final confirme = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, refreshDialog) => AlertDialog(
+          title: const Text('Modifier la dépense'),
+          content: SingleChildScrollView(
+            child: Form(
+              key: formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  DropdownButtonFormField<String>(
+                    value: categories.contains(categorie) ? categorie : 'Divers',
+                    decoration: const InputDecoration(labelText: 'Catégorie'),
+                    items: categories.map((v) =>
+                      DropdownMenuItem(value: v, child: Text(v))).toList(),
+                    onChanged: (v) {
+                      if (v != null) refreshDialog(() => categorie = v);
+                    },
+                  ),
+                  TextFormField(
+                    controller: montant,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(labelText: 'Montant'),
+                    validator: (v) {
+                      final n = int.tryParse(v ?? '');
+                      return n == null || n <= 0 ? 'Montant invalide' : null;
+                    },
+                  ),
+                  DropdownButtonFormField<String>(
+                    value: devise,
+                    decoration: const InputDecoration(labelText: 'Devise'),
+                    items: devises.map((v) =>
+                      DropdownMenuItem(value: v, child: Text(v))).toList(),
+                    onChanged: (v) {
+                      if (v != null) refreshDialog(() => devise = v);
+                    },
+                  ),
+                  TextFormField(
+                    controller: description,
+                    decoration: const InputDecoration(labelText: 'Description'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Annuler'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                if (formKey.currentState!.validate()) {
+                  Navigator.pop(dialogContext, true);
+                }
+              },
+              child: const Text('Enregistrer'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (confirme == true) {
+      try {
+        final ok = await ApiService().modifierDepense(
+          id: d.id!,
+          ownerEmail: widget.email,
+          categorie: categorie,
+          description: description.text.trim(),
+          montant: int.parse(montant.text),
+          devise: devise,
+          departureId: d.departureId,
+        );
+        if (!mounted) return;
+        if (ok) {
+          setState(() => _future = _fetchData());
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Dépense modifiée.')),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Modification impossible.')),
+          );
+        }
+      } catch (_) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Erreur lors de la modification.')),
+          );
+        }
+      }
+    }
+    description.dispose();
+    montant.dispose();
+  }
+
+  Future<void> _confirmerSuppressionDepense(DetailDepense d) async {
+    if (d.id == null) return;
+    final okSuppression = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Supprimer cette dépense ?'),
+        content: Text(
+          '${d.categorie} — ${_formatMontant(d.montant, d.devise)}\n'
+          'Cette action est définitive.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Annuler'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Supprimer', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (okSuppression != true) return;
+    try {
+      final ok = await ApiService().supprimerDepense(
+        id: d.id!,
+        ownerEmail: widget.email,
+      );
+      if (!mounted) return;
+      if (ok) {
+        setState(() => _future = _fetchData());
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Dépense supprimée.')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Suppression impossible.')),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Erreur lors de la suppression.')),
+        );
+      }
+    }
+  }
+
   void _showAddDepenseDialog() {
     final formKey = GlobalKey<FormState>();
     String categorie = 'Douane';
@@ -177,7 +340,7 @@ class _FinancesPageState extends State<FinancesPage> {
                           labelText: 'Devise',
                           border: OutlineInputBorder(),
                         ),
-                        items: ['FCFA', 'EUR', 'MAD', 'USD']
+                        items: ['FCFA', 'EURO', 'Dollars', 'Dirham', 'Autre']
                             .map((d) => DropdownMenuItem(value: d, child: Text(d)))
                             .toList(),
                         onChanged: (v) {
@@ -505,19 +668,65 @@ class _FinancesPageState extends State<FinancesPage> {
                 else
                   ...data.detailDepenses.map(
                     (d) => Card(
+                      elevation: 2,
                       child: ListTile(
-                        leading: CircleAvatar(
-                          backgroundColor: Colors.red[100],
-                          child: const Icon(Icons.arrow_downward, color: Colors.red),
+                        leading: const CircleAvatar(
+                          backgroundColor: Color(0xFFFFF0C2),
+                          child: Icon(Icons.money_off, color: Color(0xFF102542)),
                         ),
-                        title: Text(d.categorie),
-                        subtitle: Text('${d.nombre} opération(s) • ${d.devise}'),
-                        trailing: Text(
-                          '- ${_formatMontant(d.total, d.devise)}',
+                        title: Text(
+                          d.categorie,
                           style: const TextStyle(
-                            color: Colors.red,
                             fontWeight: FontWeight.bold,
+                            color: Color(0xFF102542),
                           ),
+                        ),
+                        subtitle: Text(
+                          [
+                            if ((d.description ?? '').isNotEmpty) d.description!,
+                            '${d.dateDepense ?? ''} • ${d.devise}',
+                          ].where((v) => v.isNotEmpty).join('\n'),
+                        ),
+                        isThreeLine: (d.description ?? '').isNotEmpty,
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              '- ${_formatMontant(d.montant, d.devise)}',
+                              style: const TextStyle(
+                                color: Colors.red,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            PopupMenuButton<String>(
+                              tooltip: 'Actions',
+                              onSelected: (action) {
+                                if (action == 'modifier') {
+                                  _showEditDepenseDialog(d);
+                                } else if (action == 'supprimer') {
+                                  _confirmerSuppressionDepense(d);
+                                }
+                              },
+                              itemBuilder: (_) => const [
+                                PopupMenuItem(
+                                  value: 'modifier',
+                                  child: ListTile(
+                                    leading: Icon(Icons.edit, color: Color(0xFF102542)),
+                                    title: Text('Modifier'),
+                                    contentPadding: EdgeInsets.zero,
+                                  ),
+                                ),
+                                PopupMenuItem(
+                                  value: 'supprimer',
+                                  child: ListTile(
+                                    leading: Icon(Icons.delete_outline, color: Colors.red),
+                                    title: Text('Supprimer'),
+                                    contentPadding: EdgeInsets.zero,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
                         ),
                       ),
                     ),

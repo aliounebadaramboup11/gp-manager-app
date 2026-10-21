@@ -183,4 +183,40 @@ Future<bool> addDepense({
     );
     return response.statusCode == 201;
   }
+
+  Future<bool> modifierDepense({
+    required int id,
+    required String ownerEmail,
+    required String categorie,
+    String? description,
+    required int montant,
+    required String devise,
+    int? departureId,
+  }) async {
+    final response = await http.put(
+      Uri.parse('$baseUrl/api/depenses/$id'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'owner_email': ownerEmail,
+        'categorie': categorie,
+        'description': description,
+        'montant': montant,
+        'devise': devise,
+        'departure_id': departureId,
+      }),
+    );
+    return response.statusCode == 200;
+  }
+
+  Future<bool> supprimerDepense({
+    required int id,
+    required String ownerEmail,
+  }) async {
+    final response = await http.delete(
+      Uri.parse('$baseUrl/api/depenses/$id'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'owner_email': ownerEmail}),
+    );
+    return response.statusCode == 200;
+  }
 }

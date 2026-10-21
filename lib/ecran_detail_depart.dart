@@ -269,7 +269,7 @@ class _FormulaireColisState extends State<FormulaireColis> {
   final _telDestController = TextEditingController();
   final _prixController = TextEditingController();
   String _selectedDevise = 'FCFA';
-  final List<String> _devises = ['FCFA', 'Euro', 'Dollar', 'Dirham', 'Autre'];
+  final List<String> _devises = ['FCFA', 'EURO', 'Dollars', 'Dirham', 'Autre'];
   bool _isLoading = false;
   String _typePiece = 'Aucune';
   final List<String> _typesPieces = ['Aucune', 'CNI', 'Passeport'];

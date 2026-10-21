@@ -1,24 +1,45 @@
+
 class DetailDepense {
+  final int? id;
+  final int? departureId;
   final String devise;
   final String categorie;
+  final String? description;
+  final String? dateDepense;
+  final num montant;
   final num total;
   final int nombre;
 
   DetailDepense({
+    this.id,
+    this.departureId,
     required this.devise,
     required this.categorie,
+    this.description,
+    this.dateDepense,
+    num? montant,
     required this.total,
     required this.nombre,
-  });
+  }) : montant = montant ?? total;
 
   factory DetailDepense.fromJson(Map<String, dynamic> json) {
+    num lireMontant(dynamic v) {
+      if (v is num) return v;
+      return num.tryParse(v?.toString() ?? '') ?? 0;
+    }
+
     return DetailDepense(
+      id: int.tryParse(json['id']?.toString() ?? ''),
+      departureId: int.tryParse(json['departure_id']?.toString() ?? ''),
       devise: json['devise']?.toString() ?? 'FCFA',
       categorie: json['categorie']?.toString() ?? 'Divers',
-      total: json['total'] is num ? json['total'] as num : 0,
+      description: json['description']?.toString(),
+      dateDepense: json['date_depense']?.toString(),
+      montant: lireMontant(json['montant'] ?? json['total']),
+      total: lireMontant(json['total'] ?? json['montant']),
       nombre: json['nombre'] is num
           ? (json['nombre'] as num).toInt()
-          : 0,
+          : 1,
     );
   }
 }
@@ -27,32 +48,42 @@ class FinanceDevise {
   final num recettes;
   final num depenses;
   final num benefice;
+  final num totalColis;
+  final num montantEncaisse;
+  final num resteAEncaisser;
+  final int nombreColis;
+  final int nombreColisPayes;
+  final int nombreColisNonPayes;
 
   FinanceDevise({
     required this.recettes,
     required this.depenses,
     required this.benefice,
+    this.totalColis = 0,
+    this.montantEncaisse = 0,
+    this.resteAEncaisser = 0,
+    this.nombreColis = 0,
+    this.nombreColisPayes = 0,
+    this.nombreColisNonPayes = 0,
   });
 
   factory FinanceDevise.fromJson(Map<String, dynamic>? json) {
-    if (json == null) {
-      return FinanceDevise(
-        recettes: 0,
-        depenses: 0,
-        benefice: 0,
-      );
+    num lireNombre(String cle) {
+      final valeur = json?[cle];
+      if (valeur is num) return valeur;
+      return num.tryParse(valeur?.toString() ?? '') ?? 0;
     }
 
     return FinanceDevise(
-      recettes: json['recettes'] is num
-          ? json['recettes'] as num
-          : 0,
-      depenses: json['depenses'] is num
-          ? json['depenses'] as num
-          : 0,
-      benefice: json['benefice'] is num
-          ? json['benefice'] as num
-          : 0,
+      recettes: lireNombre('recettes'),
+      depenses: lireNombre('depenses'),
+      benefice: lireNombre('benefice'),
+      totalColis: lireNombre('totalColis'),
+      montantEncaisse: lireNombre('montantEncaisse'),
+      resteAEncaisser: lireNombre('resteAEncaisser'),
+      nombreColis: lireNombre('nombreColis').toInt(),
+      nombreColisPayes: lireNombre('nombreColisPayes').toInt(),
+      nombreColisNonPayes: lireNombre('nombreColisNonPayes').toInt(),
     );
   }
 }
@@ -103,3 +134,4 @@ class FinancesData {
     );
   }
 }
+
