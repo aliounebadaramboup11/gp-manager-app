@@ -148,9 +148,9 @@ class ApiService {
   final response = await http.get(uri);
 
   if (response.statusCode == 200) {
-    return FinancesData.fromJson(
-      jsonDecode(response.body) as Map<String, dynamic>,
-    );
+    final json = jsonDecode(response.body) as Map<String, dynamic>;
+    print('DEBUG DEPENSES API: ${json['detailDepenses']}');
+    return FinancesData.fromJson(json);
   }
 
   throw Exception(
@@ -184,39 +184,46 @@ Future<bool> addDepense({
     return response.statusCode == 201;
   }
 
-  Future<bool> modifierDepense({
-    required int id,
-    required String ownerEmail,
-    required String categorie,
-    String? description,
-    required int montant,
-    required String devise,
-    int? departureId,
-  }) async {
-    final response = await http.put(
-      Uri.parse('$baseUrl/api/depenses/$id'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'owner_email': ownerEmail,
-        'categorie': categorie,
-        'description': description,
-        'montant': montant,
-        'devise': devise,
-        'departure_id': departureId,
-      }),
-    );
-    return response.statusCode == 200;
+   
+Future<bool> modifierDepense({
+  required int id,
+  required String ownerEmail,
+  required String categorie,
+  String? description,
+  required int montant,
+  required String devise,
+  int? departureId,
+}) async {
+  final response = await http.put(
+    Uri.parse('$baseUrl/api/depenses/$id'),
+    headers: {'Content-Type': 'application/json'},
+    body: jsonEncode({
+      'owner_email': ownerEmail,
+      'categorie': categorie,
+      'description': description,
+      'montant': montant,
+      'devise': devise,
+      'departure_id': departureId,
+    }),
+  );
+  if (response.statusCode != 200) {
+    throw Exception('HTTP ${response.statusCode}: ${response.body}');
   }
+  return true;
+}
 
-  Future<bool> supprimerDepense({
-    required int id,
-    required String ownerEmail,
-  }) async {
-    final response = await http.delete(
-      Uri.parse('$baseUrl/api/depenses/$id'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'owner_email': ownerEmail}),
-    );
-    return response.statusCode == 200;
+Future<bool> supprimerDepense({
+  required int id,
+  required String ownerEmail,
+}) async {
+  final response = await http.delete(
+    Uri.parse('$baseUrl/api/depenses/$id'),
+    headers: {'Content-Type': 'application/json'},
+    body: jsonEncode({'owner_email': ownerEmail}),
+  );
+  if (response.statusCode != 200) {
+    throw Exception('HTTP ${response.statusCode}: ${response.body}');
   }
+  return true;
+}
 }

@@ -121,26 +121,45 @@ class ApiService {
   }
 
   // --- FINANCES & DÉPENSES ---
-  Future<FinancesData> getFinances(String email, {String? month, int? departureId}) async {
-    String url = '$baseUrl/api/finances/$email';
-    List<String> params = [];
-    if (month != null) params.add('month=$month');
-    if (departureId != null) params.add('departure_id=$departureId');
-    if (params.isNotEmpty) url += '?${params.join("&")}';
+  Future<FinancesData> getFinances(
+  String email, {
+  String? month,
+  String? day,
+  int? departureId,
+}) async {
+  final baseUri = Uri.parse(
+    '$baseUrl/api/finances/${Uri.encodeComponent(email)}',
+  );
 
-    final response = await http.get(Uri.parse(url));
-    if (response.statusCode == 200) {
-      try {
-        return FinancesData.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
-      } catch (e) {
-        throw Exception('Le serveur a renvoye du texte au lieu de JSON.');
-      }
-    } else {
-      throw Exception('Erreur serveur : ${response.statusCode}.');
-    }
+  final params = <String, String>{};
+
+  if (departureId != null) {
+    params['departure_id'] = departureId.toString();
+  } else if (day != null) {
+    params['day'] = day;
+  } else if (month != null) {
+    params['month'] = month;
   }
 
-  Future<bool> addDepense({
+  final uri = params.isEmpty
+      ? baseUri
+      : baseUri.replace(queryParameters: params);
+
+  final response = await http.get(uri);
+
+  if (response.statusCode == 200) {
+    final json = jsonDecode(response.body) as Map<String, dynamic>;
+    print('DEBUG DEPENSES API: ${json['detailDepenses']}');
+    return FinancesData.fromJson(json);
+  }
+
+  throw Exception(
+    'Erreur lors du chargement des finances '
+    '(HTTP ${response.statusCode})',
+  );
+}
+
+Future<bool> addDepense({
     required String ownerEmail,
     int? departureId,
     required String categorie,
@@ -163,5 +182,55 @@ class ApiService {
       }),
     );
     return response.statusCode == 201;
+  }
+
+   Future<bool> modifierDepense({
+    required int id,
+    required String ownerEmail,
+    required String categorie,
+    String? description,
+    required int montant,
+    required String devise,
+    int? departureId,
+  }) async {
+    try {
+      final response = await http.put(
+        Uri.parse('$baseUrl/api/depenses/$id'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'owner_email': ownerEmail,
+          'categorie': categorie,
+          'description': description,
+          'montant': montant,
+          'devise': devise,
+          'departure_id': departureId,
+        }),
+      );
+      print('MODIFICATION HTTP: ${response.statusCode}');
+      print('REPONSE SERVEUR: ${response.body}');
+      return response.statusCode == 200;
+    } catch (e) {
+      print('ERREUR MODIFICATION: $e');
+      return false;
+    }
+  }
+
+  Future<bool> supprimerDepense({
+    required int id,
+    required String ownerEmail,
+  }) async {
+    try {
+      final response = await http.delete(
+        Uri.parse('$baseUrl/api/depenses/$id'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'owner_email': ownerEmail}),
+      );
+      print('SUPPRESSION HTTP: ${response.statusCode}');
+      print('REPONSE SERVEUR: ${response.body}');
+      return response.statusCode == 200;
+    } catch (e) {
+      print('ERREUR SUPPRESSION: $e');
+      return false;
+    }
   }
 }

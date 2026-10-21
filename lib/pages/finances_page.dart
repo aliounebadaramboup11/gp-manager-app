@@ -197,7 +197,8 @@ class _FinancesPageState extends State<FinancesPage> {
         );
         if (!mounted) return;
         if (ok) {
-          setState(() => _future = _fetchData());
+          setState(() {});
+      _future = _fetchData();
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Dépense modifiée.')),
           );
@@ -206,10 +207,10 @@ class _FinancesPageState extends State<FinancesPage> {
             const SnackBar(content: Text('Modification impossible.')),
           );
         }
-      } catch (_) {
+      } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Erreur lors de la modification.')),
+            SnackBar(content: Text('Erreur : $e')),
           );
         }
       }
@@ -249,19 +250,20 @@ class _FinancesPageState extends State<FinancesPage> {
       );
       if (!mounted) return;
       if (ok) {
-        setState(() => _future = _fetchData());
+        setState(() {});
+      _future = _fetchData();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Dépense supprimée.')),
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Suppression impossible.')),
+          SnackBar(content: Text('Suppression impossible : vérifie le message serveur.')),
         );
       }
-    } catch (_) {
+    } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Erreur lors de la suppression.')),
+          SnackBar(content: Text('Erreur : $e')),
         );
       }
     }
